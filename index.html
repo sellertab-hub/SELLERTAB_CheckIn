@@ -15,9 +15,11 @@
         .screen.active { display: block; }
         button { width: 100%; padding: 14px; background: #36FF00; border: none; border-radius: 60px; font-size: 18px; font-weight: 600; color: #000; cursor: pointer; transition: .2s; margin-top: 12px; }
         button:disabled { background: #2a2a2a; color: #666; cursor: not-allowed; }
-        .address-item { background: #1a1a1a; border-radius: 16px; padding: 16px; margin-bottom: 10px; border: 1px solid #333; cursor: pointer; transition: .2s; }
+        .address-item { background: #1a1a1a; border-radius: 16px; padding: 16px; margin-bottom: 10px; border: 1px solid #333; cursor: pointer; transition: .2s; display: flex; justify-content: space-between; align-items: center; }
         .address-item:hover, .address-item.selected { border-color: #36FF00; background: #222; }
         .address-title { font-size: 16px; font-weight: 500; }
+        .edit-icon { font-size: 20px; opacity: 0.7; cursor: pointer; margin-left: 10px; }
+        .edit-icon:hover { opacity: 1; }
         .form-card { background: #1a1a1a; border-radius: 20px; padding: 12px; margin-bottom: 16px; border: 1px solid #333; position: relative; }
         .form-card .block-number { font-size: 12px; color: #36FF00; margin-bottom: 10px; font-weight: 600; }
         .grid-2cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
@@ -48,6 +50,9 @@
         .connection-status.error { color: #ff4646; border-color: #ff4646; }
         .connection-status.success { color: #36FF00; border-color: #36FF00; }
         .connection-btn { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; z-index: 10; }
+        .back-btn { position: absolute; top: 8px; left: 8px; width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; z-index: 10; }
+        .back-btn:hover { color: #36FF00; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -69,7 +74,10 @@
     </div>
 </div>
 <div class="app-container" id="appContainer" style="display:none;">
-    <button class="connection-btn" id="connectionBtn" title="Настройки">⚙️</button>
+    <!-- Кнопка назад (видна только на экране формы) -->
+    <button class="back-btn" id="backBtn" style="display:none;">←</button>
+    <!-- Кнопка настроек (видна только на экране адресов) -->
+    <button class="connection-btn" id="connectionBtn" style="display:flex;">⚙️</button>
     <div class="content-area">
         <div id="addressScreen" class="screen">
             <h2 style="margin-bottom: 16px;">Выберите адрес</h2>
@@ -111,6 +119,8 @@
     const blocksContainer = document.getElementById('blocksContainer');
     const saveAllBtn = document.getElementById('saveAllBtn');
     const formStatus = document.getElementById('formStatus');
+    const backBtn = document.getElementById('backBtn');
+    const settingsBtn = document.getElementById('connectionBtn');
 
     function showStatus(el, msg, type) {
         el.textContent = msg;
@@ -141,25 +151,25 @@
         return true;
     }
 
-    function createBlock(idx) {
+    function createBlock(idx, data = null) {
         const div = document.createElement('div');
         div.className = 'form-card';
         div.dataset.index = idx;
         div.innerHTML = `
             <div class="block-number">📐 Помещение #${idx+1}</div>
             <button class="remove-block" ${idx === 0 ? 'disabled style="display:none;"' : ''}>✖</button>
-            <div class="full-width"><label>Название комнаты</label><input type="text" class="room-name" placeholder="Гостиная"></div>
+            <div class="full-width"><label>Название комнаты</label><input type="text" class="room-name" placeholder="Гостиная" value="${escapeHtml(data?.roomName || '')}"></div>
             <div class="grid-3cols">
-                <div><label>Высота (мм)</label><input type="number" class="height" placeholder="2100"></div>
-                <div><label>Ширина (мм)</label><input type="number" class="width" placeholder="1200"></div>
-                <div><label>Глубина (мм)</label><input type="number" class="depth" placeholder="200"></div>
+                <div><label>Высота (мм)</label><input type="number" class="height" placeholder="2100" value="${data?.height || ''}"></div>
+                <div><label>Ширина (мм)</label><input type="number" class="width" placeholder="1200" value="${data?.width || ''}"></div>
+                <div><label>Глубина (мм)</label><input type="number" class="depth" placeholder="200" value="${data?.depth || ''}"></div>
             </div>
-            <div class="full-width"><label>Чистовой пол</label><input type="text" class="floor-finish" placeholder="ламинат, плитка..."></div>
+            <div class="full-width"><label>Чистовой пол</label><input type="text" class="floor-finish" placeholder="ламинат, плитка..." value="${escapeHtml(data?.floorFinish || '')}"></div>
             <div class="double-select">
-                <div><label>Сторона открывания</label><select class="swing-side"><option value="Левое">Левое</option><option value="Правое">Правое</option></select></div>
-                <div><label>Направление</label><select class="swing-direction"><option value="В помещение">В помещение</option><option value="Наружу">Наружу</option></select></div>
+                <div><label>Сторона открывания</label><select class="swing-side">${makeOptions(['Левое','Правое'], data?.swingSide || 'Левое')}</select></div>
+                <div><label>Направление</label><select class="swing-direction">${makeOptions(['В помещение','Наружу'], data?.swingDirection || 'В помещение')}</select></div>
             </div>
-            <div class="full-width"><label>Примечание</label><textarea class="comment" rows="1" placeholder="необязательно"></textarea></div>
+            <div class="full-width"><label>Примечание</label><textarea class="comment" rows="1" placeholder="необязательно">${escapeHtml(data?.comment || '')}</textarea></div>
         `;
         const removeBtn = div.querySelector('.remove-block');
         if (removeBtn) {
@@ -181,6 +191,10 @@
             input.addEventListener('change', () => onBlockInput(div));
         });
         return div;
+    }
+
+    function makeOptions(values, selected) {
+        return values.map(v => `<option value="${v}" ${v === selected ? 'selected' : ''}>${v}</option>`).join('');
     }
 
     function hasAnyValue(block) {
@@ -234,6 +248,46 @@
         renumberBlocks();
     }
 
+    function loadBlocksFromServer(address) {
+        // Загружаем сохранённые блоки для адреса
+        const url = getAppUrl();
+        if (!url) return Promise.resolve([]);
+        return fetch(`${url}?action=getRecordsByAddress&address=${encodeURIComponent(address)}`, { mode: 'cors' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                return data;
+            })
+            .catch(err => {
+                console.warn('Не удалось загрузить сохранённые блоки', err);
+                return [];
+            });
+    }
+
+    async function fillBlocksWithSavedData(address) {
+        const savedBlocks = await loadBlocksFromServer(address);
+        if (!savedBlocks.length) return;
+        // Очищаем текущие блоки
+        blocksContainer.innerHTML = '';
+        blocks = [];
+        // Создаём блоки для каждого сохранённого
+        savedBlocks.forEach((saved, idx) => {
+            const block = createBlock(idx, saved);
+            blocks.push(block);
+            blocksContainer.appendChild(block);
+        });
+        // Если сохранённых меньше MAX_BLOCKS и последний не пустой, добавим пустой для новых записей
+        if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) {
+            addNewBlock();
+        } else if (blocks.length === MAX_BLOCKS) {
+            // если уже 13, ничего не делаем
+        } else {
+            // если последний блок пустой, но блоков меньше 13, добавим новый пустой? нет, оставим как есть.
+            // Но для удобства, если последний блок полностью пуст, пользователь сможет его заполнить
+        }
+        renumberBlocks();
+    }
+
     function collectAllBlocks() {
         const result = [];
         for (let i = 0; i < blocks.length; i++) {
@@ -243,21 +297,22 @@
             const width = b.querySelector('.width').value.trim();
             const depth = b.querySelector('.depth').value.trim();
             const floorFinish = b.querySelector('.floor-finish').value.trim();
-            if (!roomName || !height || !width || !depth || !floorFinish) continue;
+            if (!roomName && !height && !width && !depth && !floorFinish) continue; // пропускаем полностью пустые блоки
             result.push({
                 address: currentAddress,
                 blockNumber: i+1,
                 roomName: roomName,
-                height: parseFloat(height),
-                width: parseFloat(width),
-                depth: parseFloat(depth),
+                height: parseFloat(height || 0),
+                width: parseFloat(width || 0),
+                depth: parseFloat(depth || 0),
                 floorFinish: floorFinish,
                 swingSide: b.querySelector('.swing-side').value,
                 swingDirection: b.querySelector('.swing-direction').value,
                 comment: b.querySelector('.comment').value.trim()
             });
         }
-        return result;
+        // Фильтруем блоки, где обязательные поля заполнены
+        return result.filter(b => b.roomName && b.height && b.width && b.depth && b.floorFinish);
     }
 
     async function saveAllBlocks() {
@@ -270,21 +325,24 @@
         showStatus(formStatus, 'Сохранение...', '');
         try {
             const url = getAppUrl();
-            // ⚠️ ОСНОВНОЕ ИЗМЕНЕНИЕ: убрали заголовок Content-Type, чтобы не было preflight CORS
             const res = await fetch(url, {
                 method: 'POST',
                 mode: 'cors',
-                // headers: { 'Content-Type': 'application/json' },  // Эту строку убираем!
+                // без заголовка Content-Type, чтобы избежать preflight
                 body: JSON.stringify({ blocks: data })
             });
             const response = await res.json();
             if (!res.ok || response.error) throw new Error(response.error || 'Ошибка сервера');
             showStatus(formStatus, `✅ Сохранено ${data.length} помещений!`, 'success');
             setTimeout(() => {
+                // Возвращаемся к списку адресов
                 addressScreen.classList.add('active');
                 formScreen.classList.remove('active');
                 resetForm();
                 loadAddresses();
+                // Скрываем кнопку назад, показываем шестерёнку
+                backBtn.style.display = 'none';
+                settingsBtn.style.display = 'flex';
             }, 1500);
         } catch (err) {
             showStatus(formStatus, 'Ошибка: ' + err.message, 'error');
@@ -308,12 +366,17 @@
             addresses.forEach(addr => {
                 const div = document.createElement('div');
                 div.className = 'address-item';
-                div.innerHTML = `<div class="address-title">${escapeHtml(addr)}</div>`;
-                div.addEventListener('click', () => {
+                div.innerHTML = `<div class="address-title">${escapeHtml(addr)}</div><span class="edit-icon">✏️</span>`;
+                div.addEventListener('click', async (e) => {
+                    // Не срабатываем при клике на иконку? Иконка тоже вызывает, но fine
                     currentAddress = addr;
                     resetForm();
+                    await fillBlocksWithSavedData(addr);
                     addressScreen.classList.remove('active');
                     formScreen.classList.add('active');
+                    // Прячем шестерёнку, показываем кнопку назад
+                    settingsBtn.style.display = 'none';
+                    backBtn.style.display = 'flex';
                 });
                 addressListDiv.appendChild(div);
             });
@@ -321,7 +384,20 @@
             addressStatus.textContent = 'Ошибка загрузки: ' + err.message;
         }
     }
-    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m]));
+    }
+
+    function goBackToAddresses() {
+        addressScreen.classList.add('active');
+        formScreen.classList.remove('active');
+        resetForm();
+        loadAddresses();
+        backBtn.style.display = 'none';
+        settingsBtn.style.display = 'flex';
+    }
 
     async function initApp() {
         const url = getAppUrl();
@@ -337,6 +413,8 @@
             appContainer.style.display = 'flex';
             addressScreen.classList.add('active');
             formScreen.classList.remove('active');
+            backBtn.style.display = 'none';
+            settingsBtn.style.display = 'flex';
             await loadAddresses();
         } catch (e) {
             loadingScreen.classList.add('hidden');
@@ -361,6 +439,8 @@
         try { await testConnection(u); saveAppUrl(u); hideConnectionOverlay(); await initApp(); } catch (err) { setConnectionStatus(err.message, 'error'); }
     });
     saveAllBtn.addEventListener('click', saveAllBlocks);
+    backBtn.addEventListener('click', goBackToAddresses);
+
     initApp();
 })();
 </script>
