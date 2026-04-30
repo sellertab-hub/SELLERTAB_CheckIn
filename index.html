@@ -1,186 +1,272 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Замеры</title>
-<style>body{font-family:sans-serif;background:#000;color:#fff;padding:16px}.card{background:#1a1a1a;border-radius:20px;padding:12px;margin-bottom:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}input,select,textarea{width:100%;padding:8px;border-radius:12px;border:1px solid #333;background:#0c0c0c;color:#fff}button{background:#36FF00;border:none;border-radius:60px;padding:12px;width:100%;font-weight:bold;margin-top:12px}.error{color:#ff4646}.success{color:#36FF00}</style>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Замеры</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #000; color: #fff; padding: 16px; margin: 0; }
+        .card { background: #1a1a1a; border-radius: 20px; padding: 12px; margin-bottom: 12px; border: 1px solid #333; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+        .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 8px 0; }
+        input, select, textarea { width: 100%; padding: 10px; background: #0c0c0c; border: 1px solid #333; border-radius: 14px; color: #fff; font-size: 14px; }
+        button { width: 100%; padding: 14px; background: #36FF00; border: none; border-radius: 60px; font-size: 16px; font-weight: 600; color: #000; margin-top: 12px; cursor: pointer; }
+        button:disabled { opacity: 0.5; }
+        .error { color: #ff4646; background: rgba(255,70,70,0.1); padding: 8px; border-radius: 12px; text-align: center; margin: 8px 0; }
+        .success { color: #36FF00; background: rgba(54,255,0,0.1); padding: 8px; border-radius: 12px; text-align: center; margin: 8px 0; }
+        .del-block { background: #ff4646; padding: 4px 12px; width: auto; font-size: 12px; margin-top: 0; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    </style>
 </head>
 <body>
-<div id="connectPanel"><input type="text" id="urlInput" placeholder="Ссылка на Apps Script" style="width:100%"><button id="saveUrl">Сохранить</button><div id="connMsg"></div></div>
-<div id="app" style="display:none">
-    <div id="addressPanel"><h2>Выберите адрес</h2><div id="addressList"></div></div>
-    <div id="formPanel" style="display:none"><div id="blocks"></div><button id="saveAll">Сохранить все блоки</button><div id="status"></div></div>
+<div id="setup" class="card">
+    <h3>Настройка подключения</h3>
+    <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    <button id="connectBtn">Подключиться</button>
+    <div id="setupMsg"></div>
 </div>
+
+<div id="app" style="display:none;">
+    <div id="addressPanel">
+        <h2>Выберите адрес</h2>
+        <div id="addressList"></div>
+    </div>
+    <div id="formPanel" style="display:none;">
+        <div id="blocksContainer"></div>
+        <button id="saveAllBtn">💾 Сохранить все блоки</button>
+        <div id="statusMsg"></div>
+    </div>
+</div>
+
 <script>
-const STORAGE_KEY = 'room_app_url';
-let currentUrl, currentAddress, blocks = [];
+// ---------- Управление URL ----------
+const STORAGE_KEY = 'room_url';
+let currentUrl = null;
+let currentAddress = null;
+let blocksArray = [];
 
-function getUrl(){ return localStorage.getItem(STORAGE_KEY); }
-function setUrl(u){ localStorage.setItem(STORAGE_KEY, u); currentUrl = u; }
-function clearUrl(){ localStorage.removeItem(STORAGE_KEY); currentUrl = null; }
+function getStoredUrl() { return localStorage.getItem(STORAGE_KEY); }
+function setStoredUrl(url) { localStorage.setItem(STORAGE_KEY, url); currentUrl = url; }
+function clearStoredUrl() { localStorage.removeItem(STORAGE_KEY); currentUrl = null; }
 
-async function testAndInit(){
-    const url = getUrl();
-    if(!url){ document.getElementById('connectPanel').style.display='block'; return; }
-    if(!url.match(/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/)){ showMsg('connMsg','Неверный формат ссылки','error'); return; }
-    currentUrl = url;
-    try{
-        const res = await fetch(url+'?action=getAddresses');
-        if(!res.ok) throw new Error('HTTP '+res.status);
+// ---------- Вспомогательные ----------
+function showMessage(container, text, isError) {
+    const div = document.createElement('div');
+    div.className = isError ? 'error' : 'success';
+    div.innerText = text;
+    container.innerHTML = '';
+    container.appendChild(div);
+    setTimeout(() => { if(container.firstChild === div) container.innerHTML = ''; }, 3000);
+}
+
+// ---------- Проверка и загрузка адресов ----------
+async function testAndLoadAddresses() {
+    const url = getStoredUrl();
+    if (!url) return false;
+    try {
+        const res = await fetch(url + '?action=getAddresses');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if(data.error) throw new Error(data.error);
-        document.getElementById('connectPanel').style.display='none';
-        document.getElementById('app').style.display='block';
-        document.getElementById('addressPanel').style.display='block';
-        document.getElementById('formPanel').style.display='none';
-        renderAddresses(data);
-    }catch(e){
-        showMsg('connMsg',e.message,'error');
-        document.getElementById('connectPanel').style.display='block';
+        if (data.error) throw new Error(data.error);
+        if (!Array.isArray(data)) throw new Error('Неверный формат ответа');
+        return data;
+    } catch (err) {
+        console.error(err);
+        return null;
     }
 }
 
-function renderAddresses(addrs){
+async function initApp() {
+    const url = getStoredUrl();
+    if (!url) {
+        document.getElementById('setup').style.display = 'block';
+        document.getElementById('app').style.display = 'none';
+        return;
+    }
+    currentUrl = url;
+    const addresses = await testAndLoadAddresses();
+    if (!addresses) {
+        document.getElementById('setup').style.display = 'block';
+        document.getElementById('app').style.display = 'none';
+        showMessage(document.getElementById('setupMsg'), 'Ошибка подключения. Проверьте ссылку и таблицу.', true);
+        return;
+    }
+    document.getElementById('setup').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    renderAddresses(addresses);
+}
+
+function renderAddresses(addresses) {
     const container = document.getElementById('addressList');
     container.innerHTML = '';
-    if(!addrs.length){ container.innerHTML='<div class="error">Нет адресов в orders</div>'; return; }
-    addrs.forEach(addr=>{
-        const div = document.createElement('div');
-        div.className='card';
-        div.textContent=addr;
-        div.onclick=()=>{
-            currentAddress=addr;
-            document.getElementById('addressPanel').style.display='none';
-            document.getElementById('formPanel').style.display='block';
-            initBlocks();
+    if (!addresses.length) {
+        container.innerHTML = '<div class="error">Нет адресов в листе orders</div>';
+        return;
+    }
+    addresses.forEach(addr => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerText = addr;
+        card.style.cursor = 'pointer';
+        card.onclick = () => {
+            currentAddress = addr;
+            document.getElementById('addressPanel').style.display = 'none';
+            document.getElementById('formPanel').style.display = 'block';
+            resetBlocks();
         };
-        container.appendChild(div);
+        container.appendChild(card);
     });
 }
 
-function initBlocks(){
-    blocks = [];
-    document.getElementById('blocks').innerHTML = '';
-    addBlock(0);
+// ---------- Блоки ----------
+function resetBlocks() {
+    blocksArray = [];
+    const container = document.getElementById('blocksContainer');
+    container.innerHTML = '';
+    addNewBlock(0);
 }
 
-function addBlock(index){
+function addNewBlock(index) {
     const div = document.createElement('div');
-    div.className='card';
+    div.className = 'card';
     div.innerHTML = `
-        <div style="display:flex; justify-content:space-between;"><b>Помещение #${index+1}</b>${index===0?'':`<button class="delBlock" style="background:#ff4646; padding:4px 8px; width:auto;">×</button>`}</div>
-        <input type="text" class="roomName" placeholder="Название комнаты">
-        <div class="grid3">
-            <input type="number" class="height" placeholder="Высота">
-            <input type="number" class="width" placeholder="Ширина">
-            <input type="number" class="depth" placeholder="Глубина">
+        <div class="flex-between">
+            <strong>Помещение #${index+1}</strong>
+            ${index === 0 ? '' : '<button class="del-block" data-del>✖</button>'}
         </div>
-        <input type="text" class="floor" placeholder="Чистовой пол">
-        <div class="grid">
-            <select class="side"><option>Левое</option><option>Правое</option></select>
-            <select class="dir"><option>В помещение</option><option>Наружу</option></select>
+        <input type="text" class="room-name" placeholder="Название комнаты *">
+        <div class="grid3">
+            <input type="number" class="height" placeholder="Высота (мм) *">
+            <input type="number" class="width" placeholder="Ширина (мм) *">
+            <input type="number" class="depth" placeholder="Глубина (мм) *">
+        </div>
+        <input type="text" class="floor" placeholder="Чистовой пол *">
+        <div class="grid2">
+            <select class="swing-side"><option>Левое</option><option>Правое</option></select>
+            <select class="swing-dir"><option>В помещение</option><option>Наружу</option></select>
         </div>
         <textarea class="comment" rows="1" placeholder="Примечание"></textarea>
     `;
-    if(index!==0){
-        div.querySelector('.delBlock').onclick = (e)=>{
+    if (index !== 0) {
+        div.querySelector('[data-del]').onclick = (e) => {
             e.stopPropagation();
-            if(blocks.length<=1) return;
-            const idx = blocks.indexOf(div);
-            if(idx!==-1){ blocks.splice(idx,1); div.remove(); renumber(); }
+            if (blocksArray.length <= 1) return;
+            const idx = blocksArray.indexOf(div);
+            if (idx !== -1) {
+                blocksArray.splice(idx, 1);
+                div.remove();
+                renumberBlocks();
+            }
         };
     }
+    // Слушатели для автоматического добавления нового блока
     const inputs = div.querySelectorAll('input, select, textarea');
-    inputs.forEach(inp=>{ inp.oninput = ()=>onBlockInput(div); inp.onchange = ()=>onBlockInput(div); });
-    blocks.push(div);
-    document.getElementById('blocks').appendChild(div);
-    renumber();
+    inputs.forEach(inp => {
+        inp.addEventListener('input', () => onLastBlockInput(div));
+        inp.addEventListener('change', () => onLastBlockInput(div));
+    });
+    blocksArray.push(div);
+    document.getElementById('blocksContainer').appendChild(div);
+    renumberBlocks();
 }
 
-function onBlockInput(block){
-    if(block !== blocks[blocks.length-1]) return;
-    if(blocks.length >= 13) return;
-    const room = block.querySelector('.roomName').value.trim();
+function onLastBlockInput(block) {
+    if (block !== blocksArray[blocksArray.length - 1]) return;
+    if (blocksArray.length >= 13) return;
+    // Проверяем, заполнено ли хоть одно обязательное поле
+    const room = block.querySelector('.room-name').value.trim();
     const h = block.querySelector('.height').value.trim();
     const w = block.querySelector('.width').value.trim();
     const d = block.querySelector('.depth').value.trim();
-    const f = block.querySelector('.floor').value.trim();
-    if(room || h || w || d || f) addBlock(blocks.length);
+    const floor = block.querySelector('.floor').value.trim();
+    if (room || h || w || d || floor) {
+        addNewBlock(blocksArray.length);
+    }
 }
 
-function renumber(){
-    blocks.forEach((b,i)=>{
-        b.querySelector('b').innerText = `Помещение #${i+1}`;
-        const del = b.querySelector('.delBlock');
-        if(del) del.style.display = i===0 ? 'none' : 'inline-block';
+function renumberBlocks() {
+    blocksArray.forEach((block, idx) => {
+        const strong = block.querySelector('strong');
+        if (strong) strong.innerText = `Помещение #${idx+1}`;
+        const delBtn = block.querySelector('[data-del]');
+        if (delBtn) {
+            delBtn.style.display = idx === 0 ? 'none' : 'inline-block';
+        }
     });
 }
 
-function collectData(){
-    let res = [];
-    for(let i=0;i<blocks.length;i++){
-        const b = blocks[i];
-        const room = b.querySelector('.roomName').value.trim();
-        const h = b.querySelector('.height').value.trim();
-        const w = b.querySelector('.width').value.trim();
-        const d = b.querySelector('.depth').value.trim();
+function collectAllBlocks() {
+    const result = [];
+    for (let i = 0; i < blocksArray.length; i++) {
+        const b = blocksArray[i];
+        const room = b.querySelector('.room-name').value.trim();
+        const height = b.querySelector('.height').value.trim();
+        const width = b.querySelector('.width').value.trim();
+        const depth = b.querySelector('.depth').value.trim();
         const floor = b.querySelector('.floor').value.trim();
-        if(!room || !h || !w || !d || !floor) continue;
-        res.push({
+        if (!room || !height || !width || !depth || !floor) continue;
+        result.push({
             address: currentAddress,
             blockNumber: i+1,
             roomName: room,
-            height: parseFloat(h),
-            width: parseFloat(w),
-            depth: parseFloat(d),
+            height: parseFloat(height),
+            width: parseFloat(width),
+            depth: parseFloat(depth),
             floorFinish: floor,
-            swingSide: b.querySelector('.side').value,
-            swingDirection: b.querySelector('.dir').value,
+            swingSide: b.querySelector('.swing-side').value,
+            swingDirection: b.querySelector('.swing-dir').value,
             comment: b.querySelector('.comment').value.trim()
         });
     }
-    return res;
+    return result;
 }
 
-async function saveAll(){
-    const data = collectData();
-    if(data.length===0){ showMsg('status','Нет заполненных блоков','error'); return; }
-    const btn = document.getElementById('saveAll');
+async function saveAll() {
+    const data = collectAllBlocks();
+    if (data.length === 0) {
+        showMessage(document.getElementById('statusMsg'), 'Нет заполненных блоков', true);
+        return;
+    }
+    const btn = document.getElementById('saveAllBtn');
     btn.disabled = true;
-    showMsg('status','Сохранение...','');
-    try{
+    showMessage(document.getElementById('statusMsg'), 'Сохранение...', false);
+    try {
         const res = await fetch(currentUrl, {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({blocks:data})
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ blocks: data })
         });
         const json = await res.json();
-        if(!res.ok || json.error) throw new Error(json.error || 'Ошибка');
-        showMsg('status','✅ Сохранено '+json.saved+' помещений','success');
-        setTimeout(()=>{
-            document.getElementById('formPanel').style.display='none';
-            document.getElementById('addressPanel').style.display='block';
-            testAndInit();
-        },1500);
-    }catch(e){
-        showMsg('status','Ошибка: '+e.message,'error');
-    }finally{
+        if (!res.ok || json.error) throw new Error(json.error || 'Ошибка сервера');
+        showMessage(document.getElementById('statusMsg'), `✅ Сохранено ${json.saved} помещений`, false);
+        // Возврат к списку адресов
+        setTimeout(() => {
+            document.getElementById('formPanel').style.display = 'none';
+            document.getElementById('addressPanel').style.display = 'block';
+            initApp(); // перезагрузим адреса
+        }, 1500);
+    } catch (err) {
+        showMessage(document.getElementById('statusMsg'), 'Ошибка: ' + err.message, true);
+    } finally {
         btn.disabled = false;
     }
 }
 
-function showMsg(elId, msg, type){
-    const el = document.getElementById(elId);
-    el.innerHTML = `<div class="${type}">${msg}</div>`;
-    setTimeout(()=>{ el.innerHTML = ''; },3000);
-}
-
-document.getElementById('saveUrl').onclick = ()=>{
-    const url = document.getElementById('urlInput').value.trim();
-    if(!url.match(/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/)){ showMsg('connMsg','Неверный формат','error'); return; }
-    setUrl(url);
-    testAndInit();
+// ---------- Кнопки ----------
+document.getElementById('connectBtn').onclick = async () => {
+    const url = document.getElementById('scriptUrl').value.trim();
+    if (!url.match(/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/)) {
+        showMessage(document.getElementById('setupMsg'), 'Неверный формат ссылки', true);
+        return;
+    }
+    setStoredUrl(url);
+    await initApp();
 };
-document.getElementById('saveAll').onclick = saveAll;
-testAndInit();
+document.getElementById('saveAllBtn').onclick = saveAll;
+
+// Запуск
+initApp();
 </script>
 </body>
 </html>
