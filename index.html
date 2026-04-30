@@ -22,7 +22,6 @@
         .edit-icon:hover { opacity: 1; }
         .form-card { background: #1a1a1a; border-radius: 20px; padding: 12px; margin-bottom: 16px; border: 1px solid #333; position: relative; }
         .form-card .block-number { font-size: 12px; color: #36FF00; margin-bottom: 10px; font-weight: 600; }
-        .grid-2cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .grid-3cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .full-width { margin-bottom: 10px; }
         label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; }
@@ -74,12 +73,10 @@
     </div>
 </div>
 <div class="app-container" id="appContainer" style="display:none;">
-    <!-- Кнопка назад (видна только на экране формы) -->
     <button class="back-btn" id="backBtn" style="display:none;">←</button>
-    <!-- Кнопка настроек (видна только на экране адресов) -->
     <button class="connection-btn" id="connectionBtn" style="display:flex;">⚙️</button>
     <div class="content-area">
-        <div id="addressScreen" class="screen">
+        <div id="addressScreen" class="screen active">
             <h2 style="margin-bottom: 16px;">Выберите адрес</h2>
             <div id="addressList"></div>
             <div id="addressStatus" style="text-align:center; color:#aaa;"></div>
@@ -106,7 +103,6 @@
     function saveAppUrl(url) { const n = normalizeUrl(url); localStorage.setItem(APP_URL_KEY, n); cachedUrl = n; }
     function clearAppUrl() { localStorage.removeItem(APP_URL_KEY); cachedUrl = null; }
 
-    // DOM elements
     const loadingScreen = document.getElementById('loadingScreen');
     const appContainer = document.getElementById('appContainer');
     const connectionOverlay = document.getElementById('connectionOverlay');
@@ -143,7 +139,7 @@
     function hideConnectionOverlay() { connectionOverlay.classList.remove('show'); }
     async function testConnection(url) {
         const u = normalizeUrl(url);
-        if (!isAppsScriptUrl(u)) throw new Error('Ссылка должна быть вида https://script.google.com/macros/s/.../exec');
+        if (!isAppsScriptUrl(u)) throw new Error('Ссылка должна быть https://script.google.com/macros/s/.../exec');
         const res = await fetch(`${u}?action=getAddresses`, { method: 'GET', mode: 'cors', cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -227,9 +223,7 @@
             const numDiv = block.querySelector('.block-number');
             if (numDiv) numDiv.textContent = `📐 Помещение #${idx+1}`;
             const removeBtn = block.querySelector('.remove-block');
-            if (removeBtn) {
-                removeBtn.style.display = idx === 0 ? 'none' : 'block';
-            }
+            if (removeBtn) removeBtn.style.display = idx === 0 ? 'none' : 'block';
         });
     }
 
@@ -248,44 +242,29 @@
         renumberBlocks();
     }
 
-    function loadBlocksFromServer(address) {
-        // Загружаем сохранённые блоки для адреса
-        const url = getAppUrl();
-        if (!url) return Promise.resolve([]);
-        return fetch(`${url}?action=getRecordsByAddress&address=${encodeURIComponent(address)}`, { mode: 'cors' })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) throw new Error(data.error);
-                return data;
-            })
-            .catch(err => {
-                console.warn('Не удалось загрузить сохранённые блоки', err);
-                return [];
-            });
+    function fillBlockWithData(block, data) {
+        block.querySelector('.room-name').value = data.roomName || '';
+        block.querySelector('.height').value = data.height || '';
+        block.querySelector('.width').value = data.width || '';
+        block.querySelector('.depth').value = data.depth || '';
+        block.querySelector('.floor-finish').value = data.floorFinish || '';
+        block.querySelector('.swing-side').value = data.swingSide || 'Левое';
+        block.querySelector('.swing-direction').value = data.swingDirection || 'В помещение';
+        block.querySelector('.comment').value = data.comment || '';
     }
 
-    async function fillBlocksWithSavedData(address) {
-        const savedBlocks = await loadBlocksFromServer(address);
-        if (!savedBlocks.length) return;
-        // Очищаем текущие блоки
-        blocksContainer.innerHTML = '';
-        blocks = [];
-        // Создаём блоки для каждого сохранённого
-        savedBlocks.forEach((saved, idx) => {
-            const block = createBlock(idx, saved);
-            blocks.push(block);
-            blocksContainer.appendChild(block);
-        });
-        // Если сохранённых меньше MAX_BLOCKS и последний не пустой, добавим пустой для новых записей
-        if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) {
-            addNewBlock();
-        } else if (blocks.length === MAX_BLOCKS) {
-            // если уже 13, ничего не делаем
-        } else {
-            // если последний блок пустой, но блоков меньше 13, добавим новый пустой? нет, оставим как есть.
-            // Но для удобства, если последний блок полностью пуст, пользователь сможет его заполнить
+    async function loadBlocksFromServer(address) {
+        const url = getAppUrl();
+        if (!url) return [];
+        try {
+            const res = await fetch(`${url}?action=getRecordsByAddress&address=${encodeURIComponent(address)}`, { mode: 'cors' });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.warn('loadBlocksFromServer error:', err);
+            return [];
         }
-        renumberBlocks();
     }
 
     function collectAllBlocks() {
@@ -297,7 +276,7 @@
             const width = b.querySelector('.width').value.trim();
             const depth = b.querySelector('.depth').value.trim();
             const floorFinish = b.querySelector('.floor-finish').value.trim();
-            if (!roomName && !height && !width && !depth && !floorFinish) continue; // пропускаем полностью пустые блоки
+            if (!roomName && !height && !width && !depth && !floorFinish) continue;
             result.push({
                 address: currentAddress,
                 blockNumber: i+1,
@@ -311,7 +290,6 @@
                 comment: b.querySelector('.comment').value.trim()
             });
         }
-        // Фильтруем блоки, где обязательные поля заполнены
         return result.filter(b => b.roomName && b.height && b.width && b.depth && b.floorFinish);
     }
 
@@ -328,19 +306,16 @@
             const res = await fetch(url, {
                 method: 'POST',
                 mode: 'cors',
-                // без заголовка Content-Type, чтобы избежать preflight
                 body: JSON.stringify({ blocks: data })
             });
             const response = await res.json();
             if (!res.ok || response.error) throw new Error(response.error || 'Ошибка сервера');
             showStatus(formStatus, `✅ Сохранено ${data.length} помещений!`, 'success');
             setTimeout(() => {
-                // Возвращаемся к списку адресов
                 addressScreen.classList.add('active');
                 formScreen.classList.remove('active');
                 resetForm();
                 loadAddresses();
-                // Скрываем кнопку назад, показываем шестерёнку
                 backBtn.style.display = 'none';
                 settingsBtn.style.display = 'flex';
             }, 1500);
@@ -361,20 +336,36 @@
             const data = await res.json();
             if (data.error) throw new Error(data.error);
             const addresses = data;
-            if (!addresses.length) { addressStatus.textContent = 'Нет адресов в таблице orders'; return; }
+            if (!addresses.length) {
+                addressStatus.textContent = 'Нет адресов в таблице orders';
+                return;
+            }
             addressStatus.textContent = '';
             addresses.forEach(addr => {
                 const div = document.createElement('div');
                 div.className = 'address-item';
                 div.innerHTML = `<div class="address-title">${escapeHtml(addr)}</div><span class="edit-icon">✏️</span>`;
                 div.addEventListener('click', async (e) => {
-                    // Не срабатываем при клике на иконку? Иконка тоже вызывает, но fine
+                    e.stopPropagation();
                     currentAddress = addr;
+                    addressStatus.textContent = `Загрузка данных для ${escapeHtml(addr)}...`;
+                    const savedBlocks = await loadBlocksFromServer(addr);
+                    addressStatus.textContent = '';
                     resetForm();
-                    await fillBlocksWithSavedData(addr);
+                    if (savedBlocks && savedBlocks.length) {
+                        fillBlockWithData(blocks[0], savedBlocks[0]);
+                        for (let i = 1; i < savedBlocks.length; i++) {
+                            const newBlock = createBlock(blocks.length, savedBlocks[i]);
+                            blocks.push(newBlock);
+                            blocksContainer.appendChild(newBlock);
+                        }
+                        renumberBlocks();
+                        if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) {
+                            addNewBlock();
+                        }
+                    }
                     addressScreen.classList.remove('active');
                     formScreen.classList.add('active');
-                    // Прячем шестерёнку, показываем кнопку назад
                     settingsBtn.style.display = 'none';
                     backBtn.style.display = 'flex';
                 });
@@ -424,7 +415,6 @@
         }
     }
 
-    // Обработчики кнопок
     document.getElementById('connectionBtn').addEventListener('click', () => showConnectionOverlay(true));
     document.getElementById('cancelConnectionBtn').addEventListener('click', hideConnectionOverlay);
     document.getElementById('clearConnectionBtn').addEventListener('click', () => { clearAppUrl(); appContainer.style.display = 'none'; showConnectionOverlay(false); setConnectionStatus('Сброшено', 'success'); });
@@ -440,7 +430,6 @@
     });
     saveAllBtn.addEventListener('click', saveAllBlocks);
     backBtn.addEventListener('click', goBackToAddresses);
-
     initApp();
 })();
 </script>
