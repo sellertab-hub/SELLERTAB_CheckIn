@@ -270,10 +270,11 @@
         showStatus(formStatus, 'Сохранение...', '');
         try {
             const url = getAppUrl();
+            // ⚠️ ОСНОВНОЕ ИЗМЕНЕНИЕ: убрали заголовок Content-Type, чтобы не было preflight CORS
             const res = await fetch(url, {
                 method: 'POST',
                 mode: 'cors',
-                headers: { 'Content-Type': 'application/json' },
+                // headers: { 'Content-Type': 'application/json' },  // Эту строку убираем!
                 body: JSON.stringify({ blocks: data })
             });
             const response = await res.json();
