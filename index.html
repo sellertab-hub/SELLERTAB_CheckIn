@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Замеры помещений + Фото</title>
+    <title>Замеры помещений</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #000; color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 8px; }
@@ -18,13 +18,15 @@
         .address-item { background: #1a1a1a; border-radius: 16px; padding: 16px; margin-bottom: 10px; border: 1px solid #333; cursor: pointer; transition: .2s; display: flex; justify-content: space-between; align-items: center; }
         .address-item:hover, .address-item.selected { border-color: #36FF00; background: #222; }
         .address-title { font-size: 16px; font-weight: 500; }
-        .edit-icon { font-size: 20px; opacity: 0.7; margin-left: 10px; }
+        .edit-icon { font-size: 20px; opacity: 0.7; cursor: pointer; margin-left: 10px; }
+        .edit-icon:hover { opacity: 1; }
         .form-card { background: #1a1a1a; border-radius: 20px; padding: 12px; margin-bottom: 16px; border: 1px solid #333; position: relative; }
         .form-card .block-number { font-size: 12px; color: #36FF00; margin-bottom: 10px; font-weight: 600; }
+        .grid-2cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .grid-3cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .full-width { margin-bottom: 10px; }
         label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; }
-        input, select, textarea { width: 100%; padding: 10px; background: #0c0c0c; border: 1px solid #333; border-radius: 14px; font-size: 14px; color: #fff; outline: none; font-family: inherit; }
+        input, select, textarea { width: 100%; padding: 10px 10px; background: #0c0c0c; border: 1px solid #333; border-radius: 14px; font-size: 14px; color: #fff; outline: none; font-family: inherit; }
         input:focus, select:focus, textarea:focus { border-color: #36FF00; }
         textarea { resize: vertical; min-height: 60px; }
         .double-select { display: flex; gap: 10px; margin-bottom: 10px; }
@@ -50,9 +52,7 @@
         .connection-btn { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; z-index: 10; }
         .back-btn { position: absolute; top: 8px; left: 8px; width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; z-index: 10; }
         .back-btn:hover { color: #36FF00; }
-        .photo-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; margin-bottom: 12px; }
-        .photo-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 12px; border: 1px solid #36FF00; background: #0c0c0c; }
-        .add-photo-btn { background: #444; margin-top: 0; margin-bottom: 12px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -60,13 +60,13 @@
 <div class="connection-overlay" id="connectionOverlay">
     <div class="connection-card">
         <div class="connection-title">Подключение к Google Sheets</div>
-        <div class="connection-hint">Вставьте ссылку на веб-приложение Google Apps Script</div>
-        <input type="text" id="appUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+        <div class="connection-hint">Вставьте ссылку на веб-приложение Google Apps Script (формат <code>https://script.google.com/macros/s/.../exec</code>)</div>
+        <input type="text" id="appUrlInput" placeholder="Вставьте ссылку">
         <div class="connection-actions">
             <button id="testConnectionBtn" class="secondary">Проверить</button>
             <button id="saveConnectionBtn">Сохранить</button>
         </div>
-        <div class="connection-actions">
+        <div class="connection-actions" style="margin-top:8px;">
             <button id="clearConnectionBtn" class="danger">Сбросить</button>
             <button id="cancelConnectionBtn" class="secondary">Отмена</button>
         </div>
@@ -84,8 +84,6 @@
         </div>
         <div id="formScreen" class="screen">
             <div id="blocksContainer"></div>
-            <button id="addPhotoBtn" class="add-photo-btn">📷 Добавить фото (до 10)</button>
-            <div id="photoContainer" class="photo-grid"></div>
             <button id="saveAllBtn">💾 Сохранить все блоки</button>
             <div id="formStatus" class="status"></div>
         </div>
@@ -99,16 +97,13 @@
     let currentAddress = null;
     let blocks = [];
     const MAX_BLOCKS = 13;
-    let currentPhotoUrls = []; // до 10
 
-    // ---- работа с URL ----
     function normalizeUrl(url) { if (!url) return ''; let u = String(url).trim().replace(/\s/g, '').split('?')[0].split('#')[0]; if (u.endsWith('/')) u = u.slice(0, -1); return u; }
     function isAppsScriptUrl(url) { return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/i.test(normalizeUrl(url)); }
     function getAppUrl() { if (cachedUrl) return cachedUrl; const saved = localStorage.getItem(APP_URL_KEY); cachedUrl = normalizeUrl(saved) || null; return cachedUrl; }
     function saveAppUrl(url) { const n = normalizeUrl(url); localStorage.setItem(APP_URL_KEY, n); cachedUrl = n; }
     function clearAppUrl() { localStorage.removeItem(APP_URL_KEY); cachedUrl = null; }
 
-    // DOM
     const loadingScreen = document.getElementById('loadingScreen');
     const appContainer = document.getElementById('appContainer');
     const connectionOverlay = document.getElementById('connectionOverlay');
@@ -123,8 +118,6 @@
     const formStatus = document.getElementById('formStatus');
     const backBtn = document.getElementById('backBtn');
     const settingsBtn = document.getElementById('connectionBtn');
-    const addPhotoBtn = document.getElementById('addPhotoBtn');
-    const photoContainer = document.getElementById('photoContainer');
 
     function showStatus(el, msg, type) {
         el.textContent = msg;
@@ -147,18 +140,18 @@
     function hideConnectionOverlay() { connectionOverlay.classList.remove('show'); }
     async function testConnection(url) {
         const u = normalizeUrl(url);
-        if (!isAppsScriptUrl(u)) throw new Error('Неверный формат ссылки');
-        const res = await fetch(`${u}?action=getAddresses`, { mode: 'cors', cache: 'no-store' });
+        if (!isAppsScriptUrl(u)) throw new Error('Ссылка должна быть https://script.google.com/macros/s/.../exec');
+        const res = await fetch(`${u}?action=getAddresses`, { method: 'GET', mode: 'cors', cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         return true;
     }
 
-    // ---- создание блока (с поддержкой данных) ----
     function createBlock(idx, data = null) {
         const div = document.createElement('div');
         div.className = 'form-card';
+        div.dataset.index = idx;
         div.innerHTML = `
             <div class="block-number">📐 Помещение #${idx+1}</div>
             <button class="remove-block" ${idx === 0 ? 'disabled style="display:none;"' : ''}>✖</button>
@@ -170,7 +163,7 @@
             </div>
             <div class="full-width"><label>Чистовой пол</label><input type="text" class="floor-finish" placeholder="ламинат, плитка..." value="${escapeHtml(data?.floorFinish || '')}"></div>
             <div class="double-select">
-                <div><label>Сторона</label><select class="swing-side">${makeOptions(['Левое','Правое'], data?.swingSide || 'Левое')}</select></div>
+                <div><label>Сторона открывания</label><select class="swing-side">${makeOptions(['Левое','Правое'], data?.swingSide || 'Левое')}</select></div>
                 <div><label>Направление</label><select class="swing-direction">${makeOptions(['В помещение','Наружу'], data?.swingDirection || 'В помещение')}</select></div>
             </div>
             <div class="full-width"><label>Примечание</label><textarea class="comment" rows="1" placeholder="необязательно">${escapeHtml(data?.comment || '')}</textarea></div>
@@ -190,9 +183,9 @@
             });
         }
         const inputs = div.querySelectorAll('input, select, textarea');
-        inputs.forEach(inp => {
-            inp.addEventListener('input', () => onBlockInput(div));
-            inp.addEventListener('change', () => onBlockInput(div));
+        inputs.forEach(input => {
+            input.addEventListener('input', () => onBlockInput(div));
+            input.addEventListener('change', () => onBlockInput(div));
         });
         return div;
     }
@@ -212,7 +205,9 @@
 
     function onBlockInput(block) {
         const lastBlock = blocks[blocks.length-1];
-        if (block === lastBlock && blocks.length < MAX_BLOCKS && hasAnyValue(lastBlock)) addNewBlock();
+        if (block === lastBlock && blocks.length < MAX_BLOCKS && hasAnyValue(lastBlock)) {
+            addNewBlock();
+        }
     }
 
     function addNewBlock() {
@@ -225,6 +220,7 @@
 
     function renumberBlocks() {
         blocks.forEach((block, idx) => {
+            block.dataset.index = idx;
             const numDiv = block.querySelector('.block-number');
             if (numDiv) numDiv.textContent = `📐 Помещение #${idx+1}`;
             const removeBtn = block.querySelector('.remove-block');
@@ -233,14 +229,17 @@
     }
 
     function checkAndAddNewBlock() {
-        if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) addNewBlock();
+        if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) {
+            addNewBlock();
+        }
     }
 
     function resetForm() {
         blocksContainer.innerHTML = '';
         blocks = [];
-        blocks.push(createBlock(0));
-        blocksContainer.appendChild(blocks[0]);
+        const firstBlock = createBlock(0);
+        blocks.push(firstBlock);
+        blocksContainer.appendChild(firstBlock);
         renumberBlocks();
     }
 
@@ -261,52 +260,32 @@
         try {
             const res = await fetch(`${url}?action=getRecordsByAddress&address=${encodeURIComponent(address)}`, { mode: 'cors' });
             const data = await res.json();
-            if (data.error) return [];
+            if (data.error) throw new Error(data.error);
             return Array.isArray(data) ? data : [];
-        } catch(e) { return []; }
+        } catch (err) {
+            console.warn('loadBlocksFromServer error:', err);
+            return [];
+        }
     }
 
-    async function loadPhotosForAddress(address) {
-        const url = getAppUrl();
-        if (!url) return [];
-        try {
-            const res = await fetch(`${url}?action=getPhotos&address=${encodeURIComponent(address)}`, { mode: 'cors' });
-            const data = await res.json();
-            if (data.urls) return data.urls;
-        } catch(e) {}
-        return [];
-    }
-
-    function renderPhotos(urls) {
-        photoContainer.innerHTML = '';
-        currentPhotoUrls = urls.filter(u => u);
-        currentPhotoUrls.forEach(url => {
-            const img = document.createElement('img');
-            img.src = url;
-            img.className = 'photo-thumb';
-            photoContainer.appendChild(img);
-        });
-    }
-
-    // ---- сохранение блоков ----
     function collectAllBlocks() {
         const result = [];
-        for (let i=0; i<blocks.length; i++) {
+        for (let i = 0; i < blocks.length; i++) {
             const b = blocks[i];
-            const room = b.querySelector('.room-name').value.trim();
-            const h = b.querySelector('.height').value.trim();
-            const w = b.querySelector('.width').value.trim();
-            const d = b.querySelector('.depth').value.trim();
-            const floor = b.querySelector('.floor-finish').value.trim();
-            if (!room && !h && !w && !d && !floor) continue;
+            const roomName = b.querySelector('.room-name').value.trim();
+            const height = b.querySelector('.height').value.trim();
+            const width = b.querySelector('.width').value.trim();
+            const depth = b.querySelector('.depth').value.trim();
+            const floorFinish = b.querySelector('.floor-finish').value.trim();
+            if (!roomName && !height && !width && !depth && !floorFinish) continue;
             result.push({
                 address: currentAddress,
                 blockNumber: i+1,
-                roomName: room,
-                height: parseFloat(h||0),
-                width: parseFloat(w||0),
-                depth: parseFloat(d||0),
-                floorFinish: floor,
+                roomName: roomName,
+                height: parseFloat(height || 0),
+                width: parseFloat(width || 0),
+                depth: parseFloat(depth || 0),
+                floorFinish: floorFinish,
                 swingSide: b.querySelector('.swing-side').value,
                 swingDirection: b.querySelector('.swing-direction').value,
                 comment: b.querySelector('.comment').value.trim()
@@ -318,7 +297,7 @@
     async function saveAllBlocks() {
         const data = collectAllBlocks();
         if (data.length === 0) {
-            showStatus(formStatus, 'Нет заполненных блоков', 'error');
+            showStatus(formStatus, 'Нет заполненных блоков. Заполните хотя бы один.', 'error');
             return;
         }
         saveAllBtn.disabled = true;
@@ -331,8 +310,8 @@
                 body: JSON.stringify({ blocks: data })
             });
             const response = await res.json();
-            if (!res.ok || response.error) throw new Error(response.error || 'Ошибка');
-            showStatus(formStatus, `✅ Сохранено ${data.length} помещений`, 'success');
+            if (!res.ok || response.error) throw new Error(response.error || 'Ошибка сервера');
+            showStatus(formStatus, `✅ Сохранено ${data.length} помещений!`, 'success');
             setTimeout(() => {
                 addressScreen.classList.add('active');
                 formScreen.classList.remove('active');
@@ -341,14 +320,13 @@
                 backBtn.style.display = 'none';
                 settingsBtn.style.display = 'flex';
             }, 1500);
-        } catch(err) {
+        } catch (err) {
             showStatus(formStatus, 'Ошибка: ' + err.message, 'error');
         } finally {
             saveAllBtn.disabled = false;
         }
     }
 
-    // ---- загрузка адресов ----
     async function loadAddresses() {
         const url = getAppUrl();
         if (!url) return;
@@ -359,7 +337,10 @@
             const data = await res.json();
             if (data.error) throw new Error(data.error);
             const addresses = data;
-            if (!addresses.length) { addressStatus.textContent = 'Нет адресов'; return; }
+            if (!addresses.length) {
+                addressStatus.textContent = 'Нет адресов в таблице orders';
+                return;
+            }
             addressStatus.textContent = '';
             addresses.forEach(addr => {
                 const div = document.createElement('div');
@@ -368,22 +349,35 @@
                 div.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     currentAddress = addr;
-                    addressStatus.textContent = `Загрузка...`;
+                    addressStatus.textContent = `Загрузка данных для ${escapeHtml(addr)}...`;
                     const savedBlocks = await loadBlocksFromServer(addr);
-                    const photoUrls = await loadPhotosForAddress(addr);
                     addressStatus.textContent = '';
-                    resetForm();
+                    
+                    // Полностью перестраиваем блоки
+                    blocksContainer.innerHTML = '';
+                    blocks = [];
+                    
                     if (savedBlocks && savedBlocks.length) {
-                        fillBlockWithData(blocks[0], savedBlocks[0]);
-                        for (let i=1; i<savedBlocks.length; i++) {
-                            const newBlock = createBlock(blocks.length, savedBlocks[i]);
+                        // Создаём блоки для каждого сохранённого
+                        for (let i = 0; i < savedBlocks.length; i++) {
+                            const newBlock = createBlock(i, savedBlocks[i]);
                             blocks.push(newBlock);
                             blocksContainer.appendChild(newBlock);
                         }
-                        renumberBlocks();
-                        if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) addNewBlock();
+                        // Если сохранённых меньше MAX_BLOCKS и последний блок не пустой, добавим один пустой
+                        if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) {
+                            const emptyBlock = createBlock(blocks.length);
+                            blocks.push(emptyBlock);
+                            blocksContainer.appendChild(emptyBlock);
+                        }
+                    } else {
+                        // Нет сохранённых — создаём один пустой блок
+                        const emptyBlock = createBlock(0);
+                        blocks.push(emptyBlock);
+                        blocksContainer.appendChild(emptyBlock);
                     }
-                    renderPhotos(photoUrls);
+                    renumberBlocks();
+                    
                     addressScreen.classList.remove('active');
                     formScreen.classList.add('active');
                     settingsBtn.style.display = 'none';
@@ -391,7 +385,7 @@
                 });
                 addressListDiv.appendChild(div);
             });
-        } catch(err) {
+        } catch (err) {
             addressStatus.textContent = 'Ошибка загрузки: ' + err.message;
         }
     }
@@ -401,57 +395,6 @@
         return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m]));
     }
 
-    // ---- фото: добавление ----
-    async function uploadPhoto(photoIndex, base64, fileName) {
-        const url = getAppUrl();
-        if (!url) throw new Error('No app url');
-        const res = await fetch(`${url}?action=uploadPhoto`, {
-            method: 'POST',
-            mode: 'cors',
-            body: JSON.stringify({
-                action: 'uploadPhoto',
-                address: currentAddress,
-                photoIndex: photoIndex,
-                base64: base64,
-                fileName: fileName
-            })
-        });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        return data.url;
-    }
-
-    addPhotoBtn.addEventListener('click', () => {
-        if (!currentAddress) return;
-        if (currentPhotoUrls.length >= 10) {
-            alert('Максимум 10 фото для адреса');
-            return;
-        }
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.multiple = false; // по одному для простоты
-        input.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async (ev) => {
-                const base64 = ev.target.result;
-                const nextIndex = currentPhotoUrls.length + 1;
-                try {
-                    const newUrl = await uploadPhoto(nextIndex, base64, file.name);
-                    currentPhotoUrls.push(newUrl);
-                    renderPhotos(currentPhotoUrls);
-                    showStatus(formStatus, 'Фото добавлено', 'success');
-                } catch(err) {
-                    showStatus(formStatus, 'Ошибка загрузки фото', 'error');
-                }
-            };
-            reader.readAsDataURL(file);
-        };
-        input.click();
-    });
-
     function goBackToAddresses() {
         addressScreen.classList.add('active');
         formScreen.classList.remove('active');
@@ -459,11 +402,8 @@
         loadAddresses();
         backBtn.style.display = 'none';
         settingsBtn.style.display = 'flex';
-        renderPhotos([]);
-        currentPhotoUrls = [];
     }
 
-    // ---- инициализация ----
     async function initApp() {
         const url = getAppUrl();
         if (!url) {
@@ -481,26 +421,26 @@
             backBtn.style.display = 'none';
             settingsBtn.style.display = 'flex';
             await loadAddresses();
-        } catch(e) {
+        } catch (e) {
             loadingScreen.classList.add('hidden');
             appContainer.style.display = 'none';
             showConnectionOverlay(false);
-            setConnectionStatus('Ошибка: ' + e.message, 'error');
+            setConnectionStatus('Ошибка подключения: ' + e.message, 'error');
         }
     }
 
     document.getElementById('connectionBtn').addEventListener('click', () => showConnectionOverlay(true));
     document.getElementById('cancelConnectionBtn').addEventListener('click', hideConnectionOverlay);
-    document.getElementById('clearConnectionBtn').addEventListener('click', () => { clearAppUrl(); appContainer.style.display = 'none'; showConnectionOverlay(false); setConnectionStatus('Сброшено','success'); });
+    document.getElementById('clearConnectionBtn').addEventListener('click', () => { clearAppUrl(); appContainer.style.display = 'none'; showConnectionOverlay(false); setConnectionStatus('Сброшено', 'success'); });
     document.getElementById('testConnectionBtn').addEventListener('click', async () => {
         const u = appUrlInput.value;
         setConnectionStatus('Проверка...');
-        try { await testConnection(u); setConnectionStatus('Успешно','success'); } catch(err) { setConnectionStatus(err.message,'error'); }
+        try { await testConnection(u); setConnectionStatus('Успешно', 'success'); } catch (err) { setConnectionStatus(err.message, 'error'); }
     });
     document.getElementById('saveConnectionBtn').addEventListener('click', async () => {
         const u = appUrlInput.value;
         setConnectionStatus('Проверка...');
-        try { await testConnection(u); saveAppUrl(u); hideConnectionOverlay(); await initApp(); } catch(err) { setConnectionStatus(err.message,'error'); }
+        try { await testConnection(u); saveAppUrl(u); hideConnectionOverlay(); await initApp(); } catch (err) { setConnectionStatus(err.message, 'error'); }
     });
     saveAllBtn.addEventListener('click', saveAllBlocks);
     backBtn.addEventListener('click', goBackToAddresses);
