@@ -22,7 +22,6 @@
         .edit-icon:hover { opacity: 1; }
         .form-card { background: #1a1a1a; border-radius: 20px; padding: 12px; margin-bottom: 16px; border: 1px solid #333; position: relative; }
         .form-card .block-number { font-size: 12px; color: #36FF00; margin-bottom: 10px; font-weight: 600; }
-        .grid-2cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .grid-3cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .full-width { margin-bottom: 10px; }
         label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; }
@@ -352,32 +351,19 @@
                     addressStatus.textContent = `Загрузка данных для ${escapeHtml(addr)}...`;
                     const savedBlocks = await loadBlocksFromServer(addr);
                     addressStatus.textContent = '';
-                    
-                    // Полностью перестраиваем блоки
-                    blocksContainer.innerHTML = '';
-                    blocks = [];
-                    
+                    resetForm();
                     if (savedBlocks && savedBlocks.length) {
-                        // Создаём блоки для каждого сохранённого
-                        for (let i = 0; i < savedBlocks.length; i++) {
-                            const newBlock = createBlock(i, savedBlocks[i]);
+                        fillBlockWithData(blocks[0], savedBlocks[0]);
+                        for (let i = 1; i < savedBlocks.length; i++) {
+                            const newBlock = createBlock(blocks.length, savedBlocks[i]);
                             blocks.push(newBlock);
                             blocksContainer.appendChild(newBlock);
                         }
-                        // Если сохранённых меньше MAX_BLOCKS и последний блок не пустой, добавим один пустой
+                        renumberBlocks();
                         if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) {
-                            const emptyBlock = createBlock(blocks.length);
-                            blocks.push(emptyBlock);
-                            blocksContainer.appendChild(emptyBlock);
+                            addNewBlock();
                         }
-                    } else {
-                        // Нет сохранённых — создаём один пустой блок
-                        const emptyBlock = createBlock(0);
-                        blocks.push(emptyBlock);
-                        blocksContainer.appendChild(emptyBlock);
                     }
-                    renumberBlocks();
-                    
                     addressScreen.classList.remove('active');
                     formScreen.classList.add('active');
                     settingsBtn.style.display = 'none';
