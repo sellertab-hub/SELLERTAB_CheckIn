@@ -1,367 +1,186 @@
 <!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Замеры помещений</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #000; color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 8px; }
-        .loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; z-index: 1000; transition: opacity .3s; }
-        .loading-screen.hidden { opacity: 0; pointer-events: none; }
-        .app-container { width: 100%; max-width: 500px; height: 90vh; background: #0c0c0c; border-radius: 28px; border: 1px solid #222; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-        .content-area { flex: 1; overflow-y: auto; padding: 16px; }
-        .screen { display: none; }
-        .screen.active { display: block; }
-        button { width: 100%; padding: 14px; background: #36FF00; border: none; border-radius: 60px; font-size: 18px; font-weight: 600; color: #000; cursor: pointer; transition: .2s; margin-top: 12px; }
-        button:disabled { background: #2a2a2a; color: #666; cursor: not-allowed; }
-        .address-item { background: #1a1a1a; border-radius: 16px; padding: 16px; margin-bottom: 10px; border: 1px solid #333; cursor: pointer; transition: .2s; }
-        .address-item:hover, .address-item.selected { border-color: #36FF00; background: #222; }
-        .address-title { font-size: 16px; font-weight: 500; }
-        .form-card { background: #1a1a1a; border-radius: 20px; padding: 12px; margin-bottom: 16px; border: 1px solid #333; position: relative; }
-        .form-card .block-number { font-size: 12px; color: #36FF00; margin-bottom: 10px; font-weight: 600; }
-        .grid-2cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .grid-3cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .full-width { margin-bottom: 10px; }
-        label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; }
-        input, select, textarea { width: 100%; padding: 10px 10px; background: #0c0c0c; border: 1px solid #333; border-radius: 14px; font-size: 14px; color: #fff; outline: none; font-family: inherit; }
-        input:focus, select:focus, textarea:focus { border-color: #36FF00; }
-        textarea { resize: vertical; min-height: 60px; }
-        .double-select { display: flex; gap: 10px; margin-bottom: 10px; }
-        .double-select > div { flex: 1; }
-        .remove-block { position: absolute; top: 8px; right: 12px; background: #ff4646; border: none; border-radius: 20px; padding: 4px 10px; font-size: 12px; font-weight: bold; color: #fff; cursor: pointer; width: auto; margin: 0; }
-        .remove-block:hover { background: #ff6666; }
-        .status { margin-top: 12px; padding: 10px; border-radius: 60px; text-align: center; display: none; background: #1a1a1a; border: 1px solid #333; }
-        .status.success { display: block; background: rgba(54,255,0,.15); color: #36FF00; border-color: #36FF00; }
-        .status.error { display: block; background: rgba(255,70,70,.15); color: #ff4646; border-color: #ff4646; }
-        .connection-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.92); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 2000; }
-        .connection-overlay.show { display: flex; }
-        .connection-card { width: 100%; max-width: 420px; background: #0c0c0c; border: 1px solid #222; border-radius: 24px; padding: 16px; }
-        .connection-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-        .connection-hint { color: #aaa; font-size: 13px; margin-bottom: 12px; }
-        .connection-actions { display: flex; gap: 8px; margin-top: 8px; }
-        .connection-actions button { margin-top: 0; padding: 12px; font-size: 14px; }
-        .connection-actions .secondary { background: #444; color: #fff; }
-        .connection-actions .danger { background: #ff4646; color: #fff; }
-        .connection-status { margin-top: 10px; padding: 10px; border-radius: 16px; background: #1a1a1a; border: 1px solid #333; color: #aaa; display: none; font-size: 13px; }
-        .connection-status.show { display: block; }
-        .connection-status.error { color: #ff4646; border-color: #ff4646; }
-        .connection-status.success { color: #36FF00; border-color: #36FF00; }
-        .connection-btn { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; z-index: 10; }
-    </style>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Замеры</title>
+<style>body{font-family:sans-serif;background:#000;color:#fff;padding:16px}.card{background:#1a1a1a;border-radius:20px;padding:12px;margin-bottom:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}input,select,textarea{width:100%;padding:8px;border-radius:12px;border:1px solid #333;background:#0c0c0c;color:#fff}button{background:#36FF00;border:none;border-radius:60px;padding:12px;width:100%;font-weight:bold;margin-top:12px}.error{color:#ff4646}.success{color:#36FF00}</style>
 </head>
 <body>
-<div class="loading-screen" id="loadingScreen"><div style="color:#36FF00;">Загрузка...</div></div>
-<div class="connection-overlay" id="connectionOverlay">
-    <div class="connection-card">
-        <div class="connection-title">Подключение к Google Sheets</div>
-        <div class="connection-hint">Вставьте ссылку на веб-приложение Google Apps Script (формат <code>https://script.google.com/macros/s/.../exec</code>)</div>
-        <input type="text" id="appUrlInput" placeholder="Вставьте ссылку">
-        <div class="connection-actions">
-            <button id="testConnectionBtn" class="secondary">Проверить</button>
-            <button id="saveConnectionBtn">Сохранить</button>
-        </div>
-        <div class="connection-actions" style="margin-top:8px;">
-            <button id="clearConnectionBtn" class="danger">Сбросить</button>
-            <button id="cancelConnectionBtn" class="secondary">Отмена</button>
-        </div>
-        <div class="connection-status" id="connectionStatus"></div>
-    </div>
+<div id="connectPanel"><input type="text" id="urlInput" placeholder="Ссылка на Apps Script" style="width:100%"><button id="saveUrl">Сохранить</button><div id="connMsg"></div></div>
+<div id="app" style="display:none">
+    <div id="addressPanel"><h2>Выберите адрес</h2><div id="addressList"></div></div>
+    <div id="formPanel" style="display:none"><div id="blocks"></div><button id="saveAll">Сохранить все блоки</button><div id="status"></div></div>
 </div>
-<div class="app-container" id="appContainer" style="display:none;">
-    <button class="connection-btn" id="connectionBtn" title="Настройки">⚙️</button>
-    <div class="content-area">
-        <div id="addressScreen" class="screen">
-            <h2 style="margin-bottom: 16px;">Выберите адрес</h2>
-            <div id="addressList"></div>
-            <div id="addressStatus" style="text-align:center; color:#aaa;"></div>
-        </div>
-        <div id="formScreen" class="screen">
-            <div id="blocksContainer"></div>
-            <button id="saveAllBtn">💾 Сохранить все блоки</button>
-            <div id="formStatus" class="status"></div>
-        </div>
-    </div>
-</div>
-
 <script>
-(function(){
-    const APP_URL_KEY = 'room_app_url';
-    let cachedUrl = null;
-    let currentAddress = null;
-    let blocks = [];
-    const MAX_BLOCKS = 13;
+const STORAGE_KEY = 'room_app_url';
+let currentUrl, currentAddress, blocks = [];
 
-    function normalizeUrl(url) { if (!url) return ''; let u = String(url).trim().replace(/\s/g, '').split('?')[0].split('#')[0]; if (u.endsWith('/')) u = u.slice(0, -1); return u; }
-    function isAppsScriptUrl(url) { return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/i.test(normalizeUrl(url)); }
-    function getAppUrl() { if (cachedUrl) return cachedUrl; const saved = localStorage.getItem(APP_URL_KEY); cachedUrl = normalizeUrl(saved) || null; return cachedUrl; }
-    function saveAppUrl(url) { const n = normalizeUrl(url); localStorage.setItem(APP_URL_KEY, n); cachedUrl = n; }
-    function clearAppUrl() { localStorage.removeItem(APP_URL_KEY); cachedUrl = null; }
+function getUrl(){ return localStorage.getItem(STORAGE_KEY); }
+function setUrl(u){ localStorage.setItem(STORAGE_KEY, u); currentUrl = u; }
+function clearUrl(){ localStorage.removeItem(STORAGE_KEY); currentUrl = null; }
 
-    // DOM elements
-    const loadingScreen = document.getElementById('loadingScreen');
-    const appContainer = document.getElementById('appContainer');
-    const connectionOverlay = document.getElementById('connectionOverlay');
-    const connectionStatusDiv = document.getElementById('connectionStatus');
-    const appUrlInput = document.getElementById('appUrlInput');
-    const addressScreen = document.getElementById('addressScreen');
-    const formScreen = document.getElementById('formScreen');
-    const addressListDiv = document.getElementById('addressList');
-    const addressStatus = document.getElementById('addressStatus');
-    const blocksContainer = document.getElementById('blocksContainer');
-    const saveAllBtn = document.getElementById('saveAllBtn');
-    const formStatus = document.getElementById('formStatus');
-
-    function showStatus(el, msg, type) {
-        el.textContent = msg;
-        el.className = 'status';
-        if (type) el.classList.add(type);
-        setTimeout(() => { if (el.classList.contains(type)) el.classList.remove(type); el.textContent = ''; el.className = 'status'; }, 3000);
-    }
-    function setConnectionStatus(msg, type) {
-        connectionStatusDiv.textContent = msg || '';
-        connectionStatusDiv.classList.remove('show', 'error', 'success');
-        if (msg) { connectionStatusDiv.classList.add('show'); if (type) connectionStatusDiv.classList.add(type); }
-    }
-    function showConnectionOverlay(allowCancel) {
-        appUrlInput.value = getAppUrl() || '';
-        document.getElementById('cancelConnectionBtn').style.display = allowCancel ? 'block' : 'none';
-        document.getElementById('clearConnectionBtn').style.display = getAppUrl() ? 'block' : 'none';
-        setConnectionStatus('');
-        connectionOverlay.classList.add('show');
-    }
-    function hideConnectionOverlay() { connectionOverlay.classList.remove('show'); }
-    async function testConnection(url) {
-        const u = normalizeUrl(url);
-        if (!isAppsScriptUrl(u)) throw new Error('Ссылка должна быть вида https://script.google.com/macros/s/.../exec');
-        const res = await fetch(`${u}?action=getAddresses`, { method: 'GET', mode: 'cors', cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+async function testAndInit(){
+    const url = getUrl();
+    if(!url){ document.getElementById('connectPanel').style.display='block'; return; }
+    if(!url.match(/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/)){ showMsg('connMsg','Неверный формат ссылки','error'); return; }
+    currentUrl = url;
+    try{
+        const res = await fetch(url+'?action=getAddresses');
+        if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        return true;
+        if(data.error) throw new Error(data.error);
+        document.getElementById('connectPanel').style.display='none';
+        document.getElementById('app').style.display='block';
+        document.getElementById('addressPanel').style.display='block';
+        document.getElementById('formPanel').style.display='none';
+        renderAddresses(data);
+    }catch(e){
+        showMsg('connMsg',e.message,'error');
+        document.getElementById('connectPanel').style.display='block';
     }
+}
 
-    function createBlock(idx) {
+function renderAddresses(addrs){
+    const container = document.getElementById('addressList');
+    container.innerHTML = '';
+    if(!addrs.length){ container.innerHTML='<div class="error">Нет адресов в orders</div>'; return; }
+    addrs.forEach(addr=>{
         const div = document.createElement('div');
-        div.className = 'form-card';
-        div.dataset.index = idx;
-        div.innerHTML = `
-            <div class="block-number">📐 Помещение #${idx+1}</div>
-            <button class="remove-block" ${idx === 0 ? 'disabled style="display:none;"' : ''}>✖</button>
-            <div class="full-width"><label>Название комнаты</label><input type="text" class="room-name" placeholder="Гостиная"></div>
-            <div class="grid-3cols">
-                <div><label>Высота (мм)</label><input type="number" class="height" placeholder="2100"></div>
-                <div><label>Ширина (мм)</label><input type="number" class="width" placeholder="1200"></div>
-                <div><label>Глубина (мм)</label><input type="number" class="depth" placeholder="200"></div>
-            </div>
-            <div class="full-width"><label>Чистовой пол</label><input type="text" class="floor-finish" placeholder="ламинат, плитка..."></div>
-            <div class="double-select">
-                <div><label>Сторона открывания</label><select class="swing-side"><option value="Левое">Левое</option><option value="Правое">Правое</option></select></div>
-                <div><label>Направление</label><select class="swing-direction"><option value="В помещение">В помещение</option><option value="Наружу">Наружу</option></select></div>
-            </div>
-            <div class="full-width"><label>Примечание</label><textarea class="comment" rows="1" placeholder="необязательно"></textarea></div>
-        `;
-        const removeBtn = div.querySelector('.remove-block');
-        if (removeBtn) {
-            removeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (blocks.length <= 1) return;
-                const index = blocks.indexOf(div);
-                if (index !== -1) {
-                    blocks.splice(index, 1);
-                    div.remove();
-                    renumberBlocks();
-                    checkAndAddNewBlock();
-                }
-            });
-        }
-        const inputs = div.querySelectorAll('input, select, textarea');
-        inputs.forEach(input => {
-            input.addEventListener('input', () => onBlockInput(div));
-            input.addEventListener('change', () => onBlockInput(div));
-        });
-        return div;
-    }
-
-    function hasAnyValue(block) {
-        const room = block.querySelector('.room-name').value.trim();
-        const h = block.querySelector('.height').value.trim();
-        const w = block.querySelector('.width').value.trim();
-        const d = block.querySelector('.depth').value.trim();
-        const floor = block.querySelector('.floor-finish').value.trim();
-        return !!(room || h || w || d || floor);
-    }
-
-    function onBlockInput(block) {
-        const lastBlock = blocks[blocks.length-1];
-        if (block === lastBlock && blocks.length < MAX_BLOCKS && hasAnyValue(lastBlock)) {
-            addNewBlock();
-        }
-    }
-
-    function addNewBlock() {
-        if (blocks.length >= MAX_BLOCKS) return;
-        const newBlock = createBlock(blocks.length);
-        blocks.push(newBlock);
-        blocksContainer.appendChild(newBlock);
-        renumberBlocks();
-    }
-
-    function renumberBlocks() {
-        blocks.forEach((block, idx) => {
-            block.dataset.index = idx;
-            const numDiv = block.querySelector('.block-number');
-            if (numDiv) numDiv.textContent = `📐 Помещение #${idx+1}`;
-            const removeBtn = block.querySelector('.remove-block');
-            if (removeBtn) {
-                removeBtn.style.display = idx === 0 ? 'none' : 'block';
-            }
-        });
-    }
-
-    function checkAndAddNewBlock() {
-        if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) {
-            addNewBlock();
-        }
-    }
-
-    function resetForm() {
-        blocksContainer.innerHTML = '';
-        blocks = [];
-        const firstBlock = createBlock(0);
-        blocks.push(firstBlock);
-        blocksContainer.appendChild(firstBlock);
-        renumberBlocks();
-    }
-
-    function collectAllBlocks() {
-        const result = [];
-        for (let i = 0; i < blocks.length; i++) {
-            const b = blocks[i];
-            const roomName = b.querySelector('.room-name').value.trim();
-            const height = b.querySelector('.height').value.trim();
-            const width = b.querySelector('.width').value.trim();
-            const depth = b.querySelector('.depth').value.trim();
-            const floorFinish = b.querySelector('.floor-finish').value.trim();
-            if (!roomName || !height || !width || !depth || !floorFinish) continue;
-            result.push({
-                address: currentAddress,
-                blockNumber: i+1,
-                roomName: roomName,
-                height: parseFloat(height),
-                width: parseFloat(width),
-                depth: parseFloat(depth),
-                floorFinish: floorFinish,
-                swingSide: b.querySelector('.swing-side').value,
-                swingDirection: b.querySelector('.swing-direction').value,
-                comment: b.querySelector('.comment').value.trim()
-            });
-        }
-        return result;
-    }
-
-    async function saveAllBlocks() {
-        const data = collectAllBlocks();
-        if (data.length === 0) {
-            showStatus(formStatus, 'Нет заполненных блоков. Заполните хотя бы один.', 'error');
-            return;
-        }
-        saveAllBtn.disabled = true;
-        showStatus(formStatus, 'Сохранение...', '');
-        try {
-            const url = getAppUrl();
-            const res = await fetch(url, {
-                method: 'POST',
-                mode: 'cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ blocks: data })
-            });
-            const response = await res.json();
-            if (!res.ok || response.error) throw new Error(response.error || 'Ошибка сервера');
-            showStatus(formStatus, `✅ Сохранено ${data.length} помещений!`, 'success');
-            setTimeout(() => {
-                addressScreen.classList.add('active');
-                formScreen.classList.remove('active');
-                resetForm();
-                loadAddresses();
-            }, 1500);
-        } catch (err) {
-            showStatus(formStatus, 'Ошибка: ' + err.message, 'error');
-        } finally {
-            saveAllBtn.disabled = false;
-        }
-    }
-
-    async function loadAddresses() {
-        const url = getAppUrl();
-        if (!url) return;
-        addressListDiv.innerHTML = '';
-        addressStatus.textContent = 'Загрузка адресов...';
-        try {
-            const res = await fetch(`${url}?action=getAddresses`, { mode: 'cors', cache: 'no-store' });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            const addresses = data;
-            if (!addresses.length) { addressStatus.textContent = 'Нет адресов в таблице orders'; return; }
-            addressStatus.textContent = '';
-            addresses.forEach(addr => {
-                const div = document.createElement('div');
-                div.className = 'address-item';
-                div.innerHTML = `<div class="address-title">${escapeHtml(addr)}</div>`;
-                div.addEventListener('click', () => {
-                    currentAddress = addr;
-                    resetForm();
-                    addressScreen.classList.remove('active');
-                    formScreen.classList.add('active');
-                });
-                addressListDiv.appendChild(div);
-            });
-        } catch (err) {
-            addressStatus.textContent = 'Ошибка загрузки: ' + err.message;
-        }
-    }
-    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
-
-    async function initApp() {
-        const url = getAppUrl();
-        if (!url) {
-            loadingScreen.classList.add('hidden');
-            appContainer.style.display = 'none';
-            showConnectionOverlay(false);
-            return;
-        }
-        try {
-            await testConnection(url);
-            loadingScreen.classList.add('hidden');
-            appContainer.style.display = 'flex';
-            addressScreen.classList.add('active');
-            formScreen.classList.remove('active');
-            await loadAddresses();
-        } catch (e) {
-            loadingScreen.classList.add('hidden');
-            appContainer.style.display = 'none';
-            showConnectionOverlay(false);
-            setConnectionStatus('Ошибка подключения: ' + e.message, 'error');
-        }
-    }
-
-    // Обработчики кнопок
-    document.getElementById('connectionBtn').addEventListener('click', () => showConnectionOverlay(true));
-    document.getElementById('cancelConnectionBtn').addEventListener('click', hideConnectionOverlay);
-    document.getElementById('clearConnectionBtn').addEventListener('click', () => { clearAppUrl(); appContainer.style.display = 'none'; showConnectionOverlay(false); setConnectionStatus('Сброшено', 'success'); });
-    document.getElementById('testConnectionBtn').addEventListener('click', async () => {
-        const u = appUrlInput.value;
-        setConnectionStatus('Проверка...');
-        try { await testConnection(u); setConnectionStatus('Успешно', 'success'); } catch (err) { setConnectionStatus(err.message, 'error'); }
+        div.className='card';
+        div.textContent=addr;
+        div.onclick=()=>{
+            currentAddress=addr;
+            document.getElementById('addressPanel').style.display='none';
+            document.getElementById('formPanel').style.display='block';
+            initBlocks();
+        };
+        container.appendChild(div);
     });
-    document.getElementById('saveConnectionBtn').addEventListener('click', async () => {
-        const u = appUrlInput.value;
-        setConnectionStatus('Проверка...');
-        try { await testConnection(u); saveAppUrl(u); hideConnectionOverlay(); await initApp(); } catch (err) { setConnectionStatus(err.message, 'error'); }
+}
+
+function initBlocks(){
+    blocks = [];
+    document.getElementById('blocks').innerHTML = '';
+    addBlock(0);
+}
+
+function addBlock(index){
+    const div = document.createElement('div');
+    div.className='card';
+    div.innerHTML = `
+        <div style="display:flex; justify-content:space-between;"><b>Помещение #${index+1}</b>${index===0?'':`<button class="delBlock" style="background:#ff4646; padding:4px 8px; width:auto;">×</button>`}</div>
+        <input type="text" class="roomName" placeholder="Название комнаты">
+        <div class="grid3">
+            <input type="number" class="height" placeholder="Высота">
+            <input type="number" class="width" placeholder="Ширина">
+            <input type="number" class="depth" placeholder="Глубина">
+        </div>
+        <input type="text" class="floor" placeholder="Чистовой пол">
+        <div class="grid">
+            <select class="side"><option>Левое</option><option>Правое</option></select>
+            <select class="dir"><option>В помещение</option><option>Наружу</option></select>
+        </div>
+        <textarea class="comment" rows="1" placeholder="Примечание"></textarea>
+    `;
+    if(index!==0){
+        div.querySelector('.delBlock').onclick = (e)=>{
+            e.stopPropagation();
+            if(blocks.length<=1) return;
+            const idx = blocks.indexOf(div);
+            if(idx!==-1){ blocks.splice(idx,1); div.remove(); renumber(); }
+        };
+    }
+    const inputs = div.querySelectorAll('input, select, textarea');
+    inputs.forEach(inp=>{ inp.oninput = ()=>onBlockInput(div); inp.onchange = ()=>onBlockInput(div); });
+    blocks.push(div);
+    document.getElementById('blocks').appendChild(div);
+    renumber();
+}
+
+function onBlockInput(block){
+    if(block !== blocks[blocks.length-1]) return;
+    if(blocks.length >= 13) return;
+    const room = block.querySelector('.roomName').value.trim();
+    const h = block.querySelector('.height').value.trim();
+    const w = block.querySelector('.width').value.trim();
+    const d = block.querySelector('.depth').value.trim();
+    const f = block.querySelector('.floor').value.trim();
+    if(room || h || w || d || f) addBlock(blocks.length);
+}
+
+function renumber(){
+    blocks.forEach((b,i)=>{
+        b.querySelector('b').innerText = `Помещение #${i+1}`;
+        const del = b.querySelector('.delBlock');
+        if(del) del.style.display = i===0 ? 'none' : 'inline-block';
     });
-    saveAllBtn.addEventListener('click', saveAllBlocks);
-    initApp();
-})();
+}
+
+function collectData(){
+    let res = [];
+    for(let i=0;i<blocks.length;i++){
+        const b = blocks[i];
+        const room = b.querySelector('.roomName').value.trim();
+        const h = b.querySelector('.height').value.trim();
+        const w = b.querySelector('.width').value.trim();
+        const d = b.querySelector('.depth').value.trim();
+        const floor = b.querySelector('.floor').value.trim();
+        if(!room || !h || !w || !d || !floor) continue;
+        res.push({
+            address: currentAddress,
+            blockNumber: i+1,
+            roomName: room,
+            height: parseFloat(h),
+            width: parseFloat(w),
+            depth: parseFloat(d),
+            floorFinish: floor,
+            swingSide: b.querySelector('.side').value,
+            swingDirection: b.querySelector('.dir').value,
+            comment: b.querySelector('.comment').value.trim()
+        });
+    }
+    return res;
+}
+
+async function saveAll(){
+    const data = collectData();
+    if(data.length===0){ showMsg('status','Нет заполненных блоков','error'); return; }
+    const btn = document.getElementById('saveAll');
+    btn.disabled = true;
+    showMsg('status','Сохранение...','');
+    try{
+        const res = await fetch(currentUrl, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({blocks:data})
+        });
+        const json = await res.json();
+        if(!res.ok || json.error) throw new Error(json.error || 'Ошибка');
+        showMsg('status','✅ Сохранено '+json.saved+' помещений','success');
+        setTimeout(()=>{
+            document.getElementById('formPanel').style.display='none';
+            document.getElementById('addressPanel').style.display='block';
+            testAndInit();
+        },1500);
+    }catch(e){
+        showMsg('status','Ошибка: '+e.message,'error');
+    }finally{
+        btn.disabled = false;
+    }
+}
+
+function showMsg(elId, msg, type){
+    const el = document.getElementById(elId);
+    el.innerHTML = `<div class="${type}">${msg}</div>`;
+    setTimeout(()=>{ el.innerHTML = ''; },3000);
+}
+
+document.getElementById('saveUrl').onclick = ()=>{
+    const url = document.getElementById('urlInput').value.trim();
+    if(!url.match(/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/)){ showMsg('connMsg','Неверный формат','error'); return; }
+    setUrl(url);
+    testAndInit();
+};
+document.getElementById('saveAll').onclick = saveAll;
+testAndInit();
 </script>
 </body>
 </html>
