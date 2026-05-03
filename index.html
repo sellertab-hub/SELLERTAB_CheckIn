@@ -153,6 +153,21 @@
         return true;
     }
 
+    // Функция форматирования даты
+    function formatDateTime(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+        const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+        const dayName = days[date.getDay()];
+        const dayNum = date.getDate();
+        const monthName = months[date.getMonth()];
+        let hours = date.getHours();
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${dayName}, ${dayNum} ${monthName} в ${hours}:${minutes}`;
+    }
+
     function makeDoorOptions(selected) {
         const options = ['Лев IN', 'Лев AUT', 'Пр IN', 'Пр AUT', 'Раздвижная в лево', 'Раздвижная в право', 'Портал'];
         return options.map(v => `<option value="${v}" ${v === selected ? 'selected' : ''}>${v}</option>`).join('');
@@ -401,7 +416,8 @@
                 if (client.dateTimeString) {
                     const dateDiv = document.createElement('div');
                     dateDiv.className = 'client-datetime';
-                    dateDiv.textContent = `📅 Замер: ${client.dateTimeString}`;
+                    const formatted = formatDateTime(client.dateTimeString);
+                    dateDiv.textContent = `📅 Замер: ${formatted}`;
                     card.appendChild(dateDiv);
                 }
                 if (client.comment) {
