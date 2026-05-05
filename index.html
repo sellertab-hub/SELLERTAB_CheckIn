@@ -19,20 +19,20 @@
         .client-card:hover { border-color: #36FF00; background: #222; }
         .client-stage { position: absolute; top: 8px; left: 12px; font-size: 10px; color: #36FF00; background: rgba(54,255,0,0.2); padding: 2px 8px; border-radius: 20px; }
         .client-address-row { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px; margin-bottom: 8px; gap: 8px; }
-        .client-address { font-size: 16px; font-weight: 600; word-break: break-word; flex: 1; }
-        .map-link { background: #2a2a2a; border: none; border-radius: 30px; padding: 6px 12px; font-size: 12px; color: #aaa; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+        .client-address { font-size: 16px; font-weight: 600; flex: 1; }
+        .map-link { background: #2a2a2a; border: none; border-radius: 30px; padding: 6px 12px; font-size: 12px; color: #aaa; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
         .map-link:hover { background: #36FF00; color: #000; }
         .client-info { font-size: 14px; color: #ddd; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 12px; }
         .client-phone { color: #36FF00; text-decoration: none; }
         .client-datetime { color: #aaa; font-size: 12px; margin-bottom: 6px; }
         .client-comment { font-size: 12px; color: #aaa; border-top: 1px solid #333; margin-top: 6px; padding-top: 6px; }
         .form-card { background: #1a1a1a; border-radius: 20px; padding: 12px; margin-bottom: 16px; border: 1px solid #333; position: relative; }
-        .form-card .block-number { font-size: 12px; color: #36FF00; margin-bottom: 10px; font-weight: 600; }
+        .form-card .block-number { font-size: 12px; color: #36FF00; margin-bottom: 10px; }
         .grid-3cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .grid-2cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .full-width { margin-bottom: 10px; }
         label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; }
-        input, select, textarea { width: 100%; padding: 10px 10px; background: #0c0c0c; border: 1px solid #333; border-radius: 14px; font-size: 14px; color: #fff; outline: none; font-family: inherit; }
+        input, select, textarea { width: 100%; padding: 10px; background: #0c0c0c; border: 1px solid #333; border-radius: 14px; font-size: 14px; color: #fff; outline: none; }
         input:focus, select:focus, textarea:focus { border-color: #36FF00; }
         textarea { resize: vertical; min-height: 60px; }
         .correction-divider { margin-top: 8px; margin-bottom: 8px; border-top: 1px dashed #333; }
@@ -55,8 +55,8 @@
         .connection-status.show { display: block; }
         .connection-status.error { color: #ff4646; border-color: #ff4646; }
         .connection-status.success { color: #36FF00; border-color: #36FF00; }
-        .connection-btn { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; z-index: 10; }
-        .back-btn { position: absolute; top: 8px; left: 8px; width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; z-index: 10; }
+        .connection-btn { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; z-index: 10; border: none; }
+        .back-btn { position: absolute; top: 8px; left: 8px; width: 32px; height: 32px; border-radius: 50%; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; z-index: 10; border: none; }
         .back-btn:hover { color: #36FF00; }
     </style>
 </head>
@@ -85,7 +85,7 @@
         <div id="addressScreen" class="screen active">
             <h2 style="margin-bottom: 16px;">Заявки на замер</h2>
             <div id="addressList"></div>
-            <div id="addressStatus" style="text-align:center; color:#aaa;"></div>
+            <div id="addressStatus" style="text-align:center;"></div>
         </div>
         <div id="formScreen" class="screen">
             <div id="blocksContainer"></div>
@@ -102,6 +102,7 @@
     let currentAddress = null;
     let blocks = [];
     const MAX_BLOCKS = 13;
+    let cachedFullData = null; // все данные из load листа
 
     function normalizeUrl(url) { if (!url) return ''; let u = String(url).trim().replace(/\s/g, '').split('?')[0].split('#')[0]; if (u.endsWith('/')) u = u.slice(0, -1); return u; }
     function isAppsScriptUrl(url) { return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/i.test(normalizeUrl(url)); }
@@ -145,15 +146,31 @@
     function hideConnectionOverlay() { connectionOverlay.classList.remove('show'); }
     async function testConnection(url) {
         const u = normalizeUrl(url);
-        if (!isAppsScriptUrl(u)) throw new Error('Ссылка должна быть https://script.google.com/macros/s/.../exec');
-        const res = await fetch(`${u}?action=getAddresses`, { method: 'GET', mode: 'cors', cache: 'no-store' });
+        if (!isAppsScriptUrl(u)) throw new Error('Неверная ссылка');
+        // Проверяем, что getAllData работает (или хотя бы getAddresses)
+        const res = await fetch(`${u}?action=getAddresses`, { mode: 'cors', cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         return true;
     }
 
-    // Функция форматирования даты
+    // ---- РАБОТА С КЭШИРОВАННЫМИ ДАННЫМИ ----
+    async function loadFullData() {
+        const url = getAppUrl();
+        if (!url) return null;
+        try {
+            const res = await fetch(`${url}?action=getAllData`, { mode: 'cors', cache: 'no-store' });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            cachedFullData = data;
+            return data;
+        } catch(err) {
+            console.warn('loadFullData error:', err);
+            return null;
+        }
+    }
+
     function formatDateTime(dateStr) {
         if (!dateStr) return '';
         const date = new Date(dateStr);
@@ -164,10 +181,11 @@
         const dayNum = date.getDate();
         const monthName = months[date.getMonth()];
         let hours = date.getHours();
-        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2,'0');
         return `${dayName}, ${dayNum} ${monthName} в ${hours}:${minutes}`;
     }
 
+    // ---- ГЕНЕРАЦИЯ БЛОКОВ (как и раньше, только doorType теперь из выпадающего списка) ----
     function makeDoorOptions(selected) {
         const options = ['Лев IN', 'Лев AUT', 'Пр IN', 'Пр AUT', 'Раздвижная в лево', 'Раздвижная в право', 'Портал'];
         return options.map(v => `<option value="${v}" ${v === selected ? 'selected' : ''}>${v}</option>`).join('');
@@ -214,9 +232,9 @@
             });
         }
         const inputs = div.querySelectorAll('input, select, textarea');
-        inputs.forEach(input => {
-            input.addEventListener('input', () => onBlockInput(div));
-            input.addEventListener('change', () => onBlockInput(div));
+        inputs.forEach(inp => {
+            inp.addEventListener('input', () => onBlockInput(div));
+            inp.addEventListener('change', () => onBlockInput(div));
         });
         return div;
     }
@@ -283,38 +301,24 @@
         block.querySelector('.comment').value = data.comment || '';
     }
 
-    async function loadBlocksFromServer(address) {
-        const url = getAppUrl();
-        if (!url) return [];
-        try {
-            const res = await fetch(`${url}?action=getRecordsByAddress&address=${encodeURIComponent(address)}`, { mode: 'cors' });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            return Array.isArray(data) ? data : [];
-        } catch (err) {
-            console.warn('loadBlocksFromServer error:', err);
-            return [];
-        }
-    }
-
     function collectAllBlocks() {
         const result = [];
-        for (let i = 0; i < blocks.length; i++) {
+        for (let i=0; i<blocks.length; i++) {
             const b = blocks[i];
             const roomName = b.querySelector('.room-name').value.trim();
             const height = b.querySelector('.height').value.trim();
             const width = b.querySelector('.width').value.trim();
-            const wallThickness = b.querySelector('.wall-thickness').value.trim();
-            const floorRaise = b.querySelector('.floor-raise').value.trim();
-            if (!roomName || !height || !width || !wallThickness || floorRaise === '') continue;
+            const wall = b.querySelector('.wall-thickness').value.trim();
+            const floor = b.querySelector('.floor-raise').value.trim();
+            if (!roomName || !height || !width || !wall || floor === '') continue;
             result.push({
                 address: currentAddress,
                 blockNumber: i+1,
                 roomName: roomName,
                 height: parseFloat(height),
                 width: parseFloat(width),
-                wallThickness: parseFloat(wallThickness),
-                floorRaise: parseFloat(floorRaise),
+                wallThickness: parseFloat(wall),
+                floorRaise: parseFloat(floor),
                 doorType: b.querySelector('.door-type').value,
                 corrHeight: parseFloat(b.querySelector('.corr-height').value) || 0,
                 corrWidth: parseFloat(b.querySelector('.corr-width').value) || 0,
@@ -328,7 +332,7 @@
     async function saveAllBlocks() {
         const data = collectAllBlocks();
         if (data.length === 0) {
-            showStatus(formStatus, 'Нет заполненных блоков. Заполните хотя бы один.', 'error');
+            showStatus(formStatus, 'Нет заполненных блоков', 'error');
             return;
         }
         saveAllBtn.disabled = true;
@@ -341,17 +345,19 @@
                 body: JSON.stringify({ blocks: data })
             });
             const response = await res.json();
-            if (!res.ok || response.error) throw new Error(response.error || 'Ошибка сервера');
-            showStatus(formStatus, `✅ Сохранено ${data.length} помещений!`, 'success');
+            if (!res.ok || response.error) throw new Error(response.error || 'Ошибка');
+            showStatus(formStatus, `✅ Сохранено ${data.length} помещений`, 'success');
+            // После сохранения обновляем кэш (запрашиваем свежие данные)
+            await loadFullData();
             setTimeout(() => {
                 addressScreen.classList.add('active');
                 formScreen.classList.remove('active');
                 resetForm();
-                loadAddresses();
+                loadAddresses(); // перерисовываем карточки
                 backBtn.style.display = 'none';
                 settingsBtn.style.display = 'flex';
             }, 1500);
-        } catch (err) {
+        } catch(err) {
             showStatus(formStatus, 'Ошибка: ' + err.message, 'error');
         } finally {
             saveAllBtn.disabled = false;
@@ -359,101 +365,97 @@
     }
 
     async function loadAddresses() {
-        const url = getAppUrl();
-        if (!url) return;
-        addressListDiv.innerHTML = '';
-        addressStatus.textContent = 'Загрузка заявок...';
-        try {
-            const res = await fetch(`${url}?action=getAddresses`, { mode: 'cors', cache: 'no-store' });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            const clients = data;
-            if (!clients.length) {
-                addressStatus.textContent = 'Нет заявок в таблице orders';
-                return;
-            }
-            addressStatus.textContent = '';
-            clients.forEach(client => {
-                const card = document.createElement('div');
-                card.className = 'client-card';
-                if (client.stage) {
-                    const stageSpan = document.createElement('div');
-                    stageSpan.className = 'client-stage';
-                    stageSpan.textContent = client.stage;
-                    card.appendChild(stageSpan);
-                }
-                const addressRow = document.createElement('div');
-                addressRow.className = 'client-address-row';
-                const addressSpan = document.createElement('div');
-                addressSpan.className = 'client-address';
-                addressSpan.textContent = client.address;
-                const mapLink = document.createElement('a');
-                mapLink.className = 'map-link';
-                mapLink.href = `https://yandex.ru/maps/?text=${encodeURIComponent(client.address)}`;
-                mapLink.target = '_blank';
-                mapLink.innerHTML = '🗺️ Карта';
-                mapLink.onclick = (e) => e.stopPropagation();
-                addressRow.appendChild(addressSpan);
-                addressRow.appendChild(mapLink);
-                card.appendChild(addressRow);
-                
-                const infoDiv = document.createElement('div');
-                infoDiv.className = 'client-info';
-                if (client.name) {
-                    const nameSpan = document.createElement('span');
-                    nameSpan.textContent = client.name;
-                    infoDiv.appendChild(nameSpan);
-                }
-                if (client.phone) {
-                    const phoneLink = document.createElement('a');
-                    phoneLink.className = 'client-phone';
-                    phoneLink.href = `tel:${client.phone.replace(/[^0-9+]/g, '')}`;
-                    phoneLink.textContent = client.phone;
-                    infoDiv.appendChild(phoneLink);
-                }
-                if (infoDiv.children.length) card.appendChild(infoDiv);
-                
-                if (client.dateTimeString) {
-                    const dateDiv = document.createElement('div');
-                    dateDiv.className = 'client-datetime';
-                    const formatted = formatDateTime(client.dateTimeString);
-                    dateDiv.textContent = `📅 Замер: ${formatted}`;
-                    card.appendChild(dateDiv);
-                }
-                if (client.comment) {
-                    const commentDiv = document.createElement('div');
-                    commentDiv.className = 'client-comment';
-                    commentDiv.textContent = `💬 ${client.comment}`;
-                    card.appendChild(commentDiv);
-                }
-                card.addEventListener('click', async (e) => {
-                    if (e.target.closest('.map-link')) return;
-                    e.stopPropagation();
-                    currentAddress = client.address;
-                    addressStatus.textContent = `Загрузка данных по адресу ${escapeHtml(client.address)}...`;
-                    const savedBlocks = await loadBlocksFromServer(client.address);
-                    addressStatus.textContent = '';
-                    resetForm();
-                    if (savedBlocks && savedBlocks.length) {
-                        fillBlockWithData(blocks[0], savedBlocks[0]);
-                        for (let i = 1; i < savedBlocks.length; i++) {
-                            const newBlock = createBlock(blocks.length, savedBlocks[i]);
-                            blocks.push(newBlock);
-                            blocksContainer.appendChild(newBlock);
-                        }
-                        renumberBlocks();
-                        if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) addNewBlock();
-                    }
-                    addressScreen.classList.remove('active');
-                    formScreen.classList.add('active');
-                    settingsBtn.style.display = 'none';
-                    backBtn.style.display = 'flex';
-                });
-                addressListDiv.appendChild(card);
-            });
-        } catch (err) {
-            addressStatus.textContent = 'Ошибка загрузки: ' + err.message;
+        if (!cachedFullData) {
+            await loadFullData();
         }
+        if (!cachedFullData || !cachedFullData.clients) {
+            addressStatus.textContent = 'Ошибка загрузки данных';
+            return;
+        }
+        const clients = cachedFullData.clients;
+        addressListDiv.innerHTML = '';
+        if (!clients.length) {
+            addressStatus.textContent = 'Нет заявок в таблице orders';
+            return;
+        }
+        addressStatus.textContent = '';
+        clients.forEach(client => {
+            const card = document.createElement('div');
+            card.className = 'client-card';
+            if (client.stage) {
+                const stageSpan = document.createElement('div');
+                stageSpan.className = 'client-stage';
+                stageSpan.textContent = client.stage;
+                card.appendChild(stageSpan);
+            }
+            const addressRow = document.createElement('div');
+            addressRow.className = 'client-address-row';
+            const addressSpan = document.createElement('div');
+            addressSpan.className = 'client-address';
+            addressSpan.textContent = client.address;
+            const mapLink = document.createElement('a');
+            mapLink.className = 'map-link';
+            mapLink.href = `https://yandex.ru/maps/?text=${encodeURIComponent(client.address)}`;
+            mapLink.target = '_blank';
+            mapLink.innerHTML = '🗺️ Карта';
+            mapLink.onclick = (e) => e.stopPropagation();
+            addressRow.appendChild(addressSpan);
+            addressRow.appendChild(mapLink);
+            card.appendChild(addressRow);
+            
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'client-info';
+            if (client.name) {
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = client.name;
+                infoDiv.appendChild(nameSpan);
+            }
+            if (client.phone) {
+                const phoneLink = document.createElement('a');
+                phoneLink.className = 'client-phone';
+                phoneLink.href = `tel:${client.phone.replace(/[^0-9+]/g, '')}`;
+                phoneLink.textContent = client.phone;
+                infoDiv.appendChild(phoneLink);
+            }
+            if (infoDiv.children.length) card.appendChild(infoDiv);
+            
+            if (client.dateTimeString) {
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'client-datetime';
+                dateDiv.textContent = `📅 Замер: ${formatDateTime(client.dateTimeString)}`;
+                card.appendChild(dateDiv);
+            }
+            if (client.comment) {
+                const commentDiv = document.createElement('div');
+                commentDiv.className = 'client-comment';
+                commentDiv.textContent = `💬 ${client.comment}`;
+                card.appendChild(commentDiv);
+            }
+            card.addEventListener('click', async (e) => {
+                if (e.target.closest('.map-link')) return;
+                currentAddress = client.address;
+                addressStatus.textContent = `Загрузка данных по адресу ${escapeHtml(client.address)}...`;
+                // Берём блоки из кэша
+                const savedBlocks = (cachedFullData.records[currentAddress] || []);
+                addressStatus.textContent = '';
+                resetForm();
+                if (savedBlocks.length) {
+                    fillBlockWithData(blocks[0], savedBlocks[0]);
+                    for (let i=1; i<savedBlocks.length; i++) {
+                        const newBlock = createBlock(blocks.length, savedBlocks[i]);
+                        blocks.push(newBlock);
+                        blocksContainer.appendChild(newBlock);
+                    }
+                    renumberBlocks();
+                    if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) addNewBlock();
+                }
+                addressScreen.classList.remove('active');
+                formScreen.classList.add('active');
+                settingsBtn.style.display = 'none';
+                backBtn.style.display = 'flex';
+            });
+            addressListDiv.appendChild(card);
+        });
     }
 
     function escapeHtml(str) {
@@ -480,6 +482,8 @@
         }
         try {
             await testConnection(url);
+            // Загружаем кэш
+            await loadFullData();
             loadingScreen.classList.add('hidden');
             appContainer.style.display = 'flex';
             addressScreen.classList.add('active');
@@ -487,7 +491,7 @@
             backBtn.style.display = 'none';
             settingsBtn.style.display = 'flex';
             await loadAddresses();
-        } catch (e) {
+        } catch(e) {
             loadingScreen.classList.add('hidden');
             appContainer.style.display = 'none';
             showConnectionOverlay(false);
@@ -501,12 +505,12 @@
     document.getElementById('testConnectionBtn').addEventListener('click', async () => {
         const u = appUrlInput.value;
         setConnectionStatus('Проверка...');
-        try { await testConnection(u); setConnectionStatus('Успешно', 'success'); } catch (err) { setConnectionStatus(err.message, 'error'); }
+        try { await testConnection(u); setConnectionStatus('Успешно', 'success'); } catch(err) { setConnectionStatus(err.message, 'error'); }
     });
     document.getElementById('saveConnectionBtn').addEventListener('click', async () => {
         const u = appUrlInput.value;
         setConnectionStatus('Проверка...');
-        try { await testConnection(u); saveAppUrl(u); hideConnectionOverlay(); await initApp(); } catch (err) { setConnectionStatus(err.message, 'error'); }
+        try { await testConnection(u); saveAppUrl(u); hideConnectionOverlay(); await initApp(); } catch(err) { setConnectionStatus(err.message, 'error'); }
     });
     saveAllBtn.addEventListener('click', saveAllBlocks);
     backBtn.addEventListener('click', goBackToAddresses);
