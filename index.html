@@ -10,12 +10,12 @@
         .loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; z-index: 1000; transition: opacity .3s; }
         .loading-screen.hidden { opacity: 0; pointer-events: none; }
         .app-container { width: 100%; max-width: 500px; height: 90vh; background: #0c0c0c; border-radius: 28px; border: 1px solid #222; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-        .content-area { flex: 1; overflow-y: auto; padding: 16px; padding-top: 52px; } /* отступ для кнопки назад */
+        .content-area { flex: 1; overflow-y: auto; padding: 16px; padding-top: 52px; }
         .screen { display: none; }
         .screen.active { display: block; }
         button { width: 100%; padding: 14px; background: #36FF00; border: none; border-radius: 60px; font-size: 18px; font-weight: 600; color: #000; cursor: pointer; transition: .2s; margin-top: 12px; }
         button:disabled { background: #2a2a2a; color: #666; cursor: not-allowed; }
-        /* Карточки клиентов на главном экране */
+        /* Карточки клиентов */
         .client-card { background: #1a1a1a; border-radius: 20px; padding: 14px; margin-bottom: 12px; border: 1px solid #333; cursor: pointer; transition: .2s; position: relative; }
         .client-card:hover { border-color: #36FF00; background: #222; }
         .client-stage { position: absolute; top: 8px; left: 12px; font-size: 10px; color: #36FF00; background: rgba(54,255,0,0.2); padding: 2px 8px; border-radius: 20px; }
@@ -27,6 +27,7 @@
         .client-phone { color: #36FF00; text-decoration: none; }
         .client-datetime { color: #aaa; font-size: 12px; margin-bottom: 6px; }
         .client-comment { font-size: 12px; color: #aaa; border-top: 1px solid #333; margin-top: 6px; padding-top: 6px; }
+        .doors-count { font-size: 12px; color: #36FF00; margin-left: 4px; }
         /* Мини-карточка на экране формы */
         .mini-client-card { background: #1a1a1a; border-radius: 16px; padding: 10px; margin-bottom: 16px; border-left: 3px solid #36FF00; }
         .mini-client-card .client-address-row { margin-top: 0; }
@@ -34,20 +35,20 @@
         /* Форма блоков */
         .form-card { background: #1a1a1a; border-radius: 20px; padding: 12px; margin-bottom: 16px; border: 1px solid #333; position: relative; }
         .form-card .block-number { font-size: 12px; color: #36FF00; margin-bottom: 10px; font-weight: 600; }
-        .grid-3cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .grid-3cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 8px; }
         .grid-2cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .full-width { margin-bottom: 10px; }
         label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; }
         input, select, textarea { width: 100%; padding: 10px 10px; background: #0c0c0c; border: 1px solid #333; border-radius: 14px; font-size: 14px; color: #fff; outline: none; font-family: inherit; }
         input:focus, select:focus, textarea:focus { border-color: #36FF00; }
         textarea { resize: vertical; min-height: 60px; }
-        .correction-divider { margin-top: 8px; margin-bottom: 8px; border-top: 1px dashed #333; }
+        .correction-divider { margin-top: 8px; margin-bottom: 4px; border-top: 1px dashed #333; }
+        .correction-label { font-size: 11px; color: #36FF00; text-align: center; margin-bottom: 6px; letter-spacing: 0.3px; }
         .remove-block { position: absolute; top: 8px; right: 12px; background: #ff4646; border: none; border-radius: 20px; padding: 4px 10px; font-size: 12px; font-weight: bold; color: #fff; cursor: pointer; width: auto; margin: 0; }
         .remove-block:hover { background: #ff6666; }
         .status { margin-top: 12px; padding: 10px; border-radius: 60px; text-align: center; display: none; background: #1a1a1a; border: 1px solid #333; }
         .status.success { display: block; background: rgba(54,255,0,.15); color: #36FF00; border-color: #36FF00; }
         .status.error { display: block; background: rgba(255,70,70,.15); color: #ff4646; border-color: #ff4646; }
-        /* Оверлей подключения */
         .connection-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.92); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 2000; }
         .connection-overlay.show { display: flex; }
         .connection-card { width: 100%; max-width: 420px; background: #0c0c0c; border: 1px solid #222; border-radius: 24px; padding: 16px; }
@@ -64,7 +65,6 @@
         .connection-btn { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; z-index: 10; }
         .back-btn { position: absolute; top: 8px; left: 8px; width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; z-index: 10; }
         .back-btn:hover { color: #36FF00; }
-        /* Дополнительно для мини-карточки */
         .mini-client-card .client-phone { font-size: 12px; }
     </style>
 </head>
@@ -111,7 +111,7 @@
     let currentAddress = null;
     let blocks = [];
     const MAX_BLOCKS = 13;
-    let cachedFullData = null; // глобальный кэш всех данных
+    let cachedFullData = null;
 
     function normalizeUrl(url) { if (!url) return ''; let u = String(url).trim().replace(/\s/g, '').split('?')[0].split('#')[0]; if (u.endsWith('/')) u = u.slice(0, -1); return u; }
     function isAppsScriptUrl(url) { return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/i.test(normalizeUrl(url)); }
@@ -164,7 +164,6 @@
         return true;
     }
 
-    // Функция форматирования даты
     function formatDateTime(dateStr) {
         if (!dateStr) return '';
         const date = new Date(dateStr);
@@ -193,15 +192,16 @@
             <button class="remove-block" ${idx === 0 ? 'disabled style="display:none;"' : ''}>✖</button>
             <div class="full-width"><label>Название комнаты</label><input type="text" class="room-name" placeholder="Гостиная" value="${escapeHtml(data?.roomName || '')}"></div>
             <div class="grid-3cols">
-                <div><input type="number" class="height" placeholder="Высота проема" value="${data?.height || ''}"></div>
-                <div><input type="number" class="width" placeholder="Ширина проема" value="${data?.width || ''}"></div>
-                <div><input type="number" class="wall-thickness" placeholder="Толщина стены" value="${data?.wallThickness || ''}"></div>
+                <div><label>Высота проёма</label><input type="number" class="height" placeholder="2100" value="${data?.height || ''}"></div>
+                <div><label>Ширина проёма</label><input type="number" class="width" placeholder="1200" value="${data?.width || ''}"></div>
+                <div><label>Толщина стены</label><input type="number" class="wall-thickness" placeholder="200" value="${data?.wallThickness || ''}"></div>
             </div>
             <div class="correction-divider"></div>
+            <div class="correction-label">✂️ Необходимая коррекция размера</div>
             <div class="grid-3cols">
-                <div><input type="number" class="corr-height" placeholder="Коррекция высоты" value="${data?.corrHeight || ''}"></div>
-                <div><input type="number" class="corr-width" placeholder="Коррекция ширины" value="${data?.corrWidth || ''}"></div>
-                <div><input type="number" class="corr-wall" placeholder="Коррекция толщины" value="${data?.corrWallThickness || ''}"></div>
+                <div><input type="number" class="corr-height" placeholder="Высота" value="${data?.corrHeight || ''}"></div>
+                <div><input type="number" class="corr-width" placeholder="Ширина" value="${data?.corrWidth || ''}"></div>
+                <div><input type="number" class="corr-wall" placeholder="Толщина" value="${data?.corrWallThickness || ''}"></div>
             </div>
             <div class="grid-2cols">
                 <div><label>Поднятие чистового пола (мм)</label><input type="number" class="floor-raise" placeholder="0" value="${data?.floorRaise || ''}"></div>
@@ -339,7 +339,6 @@
             const response = await res.json();
             if (!res.ok || response.error) throw new Error(response.error || 'Ошибка сервера');
             showStatus(formStatus, `✅ Сохранено ${data.length} помещений!`, 'success');
-            // Обновляем кэш после сохранения
             await loadFullData(true);
             setTimeout(() => {
                 addressScreen.classList.add('active');
@@ -358,7 +357,6 @@
         }
     }
 
-    // Функция загрузки всех данных одним запросом
     async function loadFullData(force = false) {
         if (!force && cachedFullData) return cachedFullData;
         const url = getAppUrl();
@@ -386,6 +384,7 @@
         }
         addressStatus.textContent = '';
         clients.forEach(client => {
+            const blocksCount = (data.records && data.records[client.address]) ? data.records[client.address].length : 0;
             const card = document.createElement('div');
             card.className = 'client-card';
             if (client.stage) {
@@ -398,7 +397,7 @@
             addressRow.className = 'client-address-row';
             const addressSpan = document.createElement('div');
             addressSpan.className = 'client-address';
-            addressSpan.textContent = client.address;
+            addressSpan.innerHTML = `${escapeHtml(client.address)}${blocksCount ? `<span class="doors-count">(${blocksCount} ${declOfNum(blocksCount, ['дверь', 'двери', 'дверей'])})</span>` : ''}`;
             const mapLink = document.createElement('a');
             mapLink.className = 'map-link';
             mapLink.href = `https://yandex.ru/maps/?text=${encodeURIComponent(client.address)}`;
@@ -421,7 +420,6 @@
                 phoneLink.className = 'client-phone';
                 phoneLink.href = `tel:${client.phone.replace(/[^0-9+]/g, '')}`;
                 phoneLink.textContent = client.phone;
-                // Предотвращаем переход в форму при клике на телефон
                 phoneLink.onclick = (e) => e.stopPropagation();
                 infoDiv.appendChild(phoneLink);
             }
@@ -445,7 +443,6 @@
                 e.stopPropagation();
                 currentAddress = client.address;
                 const savedBlocks = (cachedFullData.records && cachedFullData.records[currentAddress]) ? cachedFullData.records[currentAddress] : [];
-                const photos = (cachedFullData.photos && cachedFullData.photos[currentAddress]) ? cachedFullData.photos[currentAddress] : [];
                 resetForm();
                 if (savedBlocks && savedBlocks.length) {
                     fillBlockWithData(blocks[0], savedBlocks[0]);
@@ -457,7 +454,6 @@
                     renumberBlocks();
                     if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) addNewBlock();
                 }
-                // Отображаем мини-карточку клиента
                 renderMiniClientCard(client);
                 addressScreen.classList.remove('active');
                 formScreen.classList.add('active');
@@ -466,6 +462,15 @@
             });
             addressListDiv.appendChild(card);
         });
+    }
+
+    function declOfNum(n, titles) {
+        n = Math.abs(n) % 100;
+        if (n > 10 && n < 20) return titles[2];
+        n %= 10;
+        if (n === 1) return titles[0];
+        if (n >= 2 && n <= 4) return titles[1];
+        return titles[2];
     }
 
     function renderMiniClientCard(client) {
@@ -510,7 +515,6 @@
         }
         try {
             await testConnection(url);
-            // Предзагружаем данные
             await loadFullData(true);
             loadingScreen.classList.add('hidden');
             appContainer.style.display = 'flex';
