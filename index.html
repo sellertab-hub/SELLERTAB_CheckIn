@@ -36,7 +36,7 @@
         .add-photo-btn { background: #2a2a2a; border: none; border-radius: 30px; padding: 6px 12px; font-size: 12px; color: #36FF00; cursor: pointer; }
         .add-photo-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .photos-container { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
-        .photo-item { position: relative; flex-shrink: 0; width: 80px; height: 80px; border-radius: 12px; overflow: hidden; background: #0c0c0c; border: 1px solid #333; }
+        .photo-item { position: relative; flex-shrink: 0; width: 80px; height: 80px; border-radius: 12px; overflow: hidden; background: #0c0c0c; border: 1px solid #333; cursor: pointer; }
         .photo-item img { width: 100%; height: 100%; object-fit: cover; }
         .photo-blur { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: #36FF00; text-align: center; font-size: 12px; padding: 4px; backdrop-filter: blur(4px); }
         .form-card { background: #1a1a1a; border-radius: 20px; padding: 12px; margin-bottom: 16px; border: 1px solid #333; position: relative; }
@@ -124,7 +124,7 @@
     let blocks = [];
     const MAX_BLOCKS = 13;
     let cachedFullData = null;
-    let currentPhotos = [];
+    let currentPhotos = []; // массив view-ссылок
 
     function normalizeUrl(url) { if (!url) return ''; let u = String(url).trim().replace(/\s/g, '').split('?')[0].split('#')[0]; if (u.endsWith('/')) u = u.slice(0, -1); return u; }
     function isAppsScriptUrl(url) { return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/i.test(normalizeUrl(url)); }
@@ -199,6 +199,16 @@
         return options.map(v => `<option value="${v}" ${v === selected ? 'selected' : ''}>${v}</option>`).join('');
     }
 
+    // Helper: из view-ссылки извлекает ID и формирует thumbnail
+    function getThumbnailUrl(viewUrl, size = 800) {
+        if (!viewUrl) return '';
+        const match = viewUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+            return `https://drive.google.com/thumbnail?id=${match[1]}&sz=s${size}`;
+        }
+        return viewUrl; // fallback
+    }
+
     async function uploadPhoto(base64, fileName, index) {
         const url = getAppUrl();
         const response = await fetch(url, {
@@ -209,7 +219,7 @@
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (data.error) throw new Error(data.error);
-        return data.url;
+        return data.url; // возвращает viewUrl
     }
 
     function renderPhotos() {
@@ -229,10 +239,13 @@
         const total = currentPhotos.length;
         const showCount = Math.min(total, 5);
         for (let i = 0; i < showCount; i++) {
+            const viewUrl = currentPhotos[i];
+            const thumbnailUrl = getThumbnailUrl(viewUrl, 800);
             const div = document.createElement('div');
             div.className = 'photo-item';
             const img = document.createElement('img');
-            img.src = currentPhotos[i];
+            img.src = thumbnailUrl;
+            img.onerror = () => { img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="%23aaa" stroke-width="2"%3E%3Crect x="2" y="2" width="20" height="20" rx="2"%3E%3C/rect%3E%3Ccircle cx="8.5" cy="8.5" r="2.5"%3E%3C/circle%3E%3Cpath d="M21 15l-5-4-3 3-4-4-5 5"%3E%3C/path%3E%3C/svg%3E'; };
             div.appendChild(img);
             if (i === 4 && total > 5) {
                 const blur = document.createElement('div');
@@ -240,6 +253,13 @@
                 blur.textContent = `+${total - 5}`;
                 div.appendChild(blur);
             }
+            // клик по фото – открываем viewUrl в новой вкладке
+            div.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (viewUrl && viewUrl.startsWith('http')) {
+                    window.open(viewUrl, '_blank');
+                }
+            });
             photosContainer.appendChild(div);
         }
     }
@@ -264,8 +284,8 @@
                 const base64 = ev.target.result;
                 const nextIndex = currentPhotos.length + 1;
                 try {
-                    const url = await uploadPhoto(base64, file.name, nextIndex);
-                    currentPhotos.push(url);
+                    const viewUrl = await uploadPhoto(base64, file.name, nextIndex);
+                    currentPhotos.push(viewUrl);
                     renderPhotos();
                     await loadFullData(true);
                     showStatus(formStatus, '✅ Фото добавлено', 'success');
