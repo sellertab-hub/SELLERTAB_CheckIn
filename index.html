@@ -30,7 +30,6 @@
         .mini-client-card { background: #1a1a1a; border-radius: 16px; padding: 10px; margin-bottom: 16px; border-left: 3px solid #36FF00; }
         .mini-client-card .client-address-row { margin-top: 0; }
         .mini-client-card .client-info { font-size: 12px; }
-        /* Блок фото (общие) */
         .photos-section { margin: 16px 0; }
         .photos-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .photos-title span { font-size: 14px; color: #36FF00; font-weight: 500; }
@@ -40,9 +39,8 @@
         .photo-item { position: relative; flex-shrink: 0; width: 80px; height: 80px; border-radius: 12px; overflow: hidden; background: #0c0c0c; border: 1px solid #333; cursor: pointer; }
         .photo-item img { width: 100%; height: 100%; object-fit: cover; }
         .photo-blur { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: #36FF00; text-align: center; font-size: 12px; padding: 4px; backdrop-filter: blur(4px); }
-        /* Блок фото для блока */
-        .block-photos { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-        .block-photo-item { position: relative; width: 60px; height: 60px; border-radius: 10px; overflow: hidden; background: #0c0c0c; border: 1px solid #333; cursor: pointer; }
+        .block-photos { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+        .block-photo-item { position: relative; width: 60px; height: 60px; border-radius: 10px; overflow: hidden; background: #0c0c0c; border: 1px solid #333; cursor: pointer; flex-shrink: 0; }
         .block-photo-item img { width: 100%; height: 100%; object-fit: cover; }
         .add-block-photo-btn { background: #2a2a2a; border: none; border-radius: 20px; padding: 4px 8px; font-size: 10px; color: #36FF00; cursor: pointer; margin-top: 4px; }
         .form-card { background: #1a1a1a; border-radius: 20px; padding: 12px; margin-bottom: 16px; border: 1px solid #333; position: relative; }
@@ -130,7 +128,7 @@
     let blocks = [];
     const MAX_BLOCKS = 50;
     let cachedFullData = null;
-    let currentCommonPhotos = []; // общие фото заказа
+    let currentCommonPhotos = [];
 
     function normalizeUrl(url) { if (!url) return ''; let u = String(url).trim().replace(/\s/g, '').split('?')[0].split('#')[0]; if (u.endsWith('/')) u = u.slice(0, -1); return u; }
     function isAppsScriptUrl(url) { return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/i.test(normalizeUrl(url)); }
@@ -205,7 +203,6 @@
         return options.map(v => `<option value="${v}" ${v === selected ? 'selected' : ''}>${v}</option>`).join('');
     }
 
-    // Helper: из view-ссылки извлекает ID и формирует thumbnail
     function getThumbnailUrl(viewUrl, size = 400) {
         if (!viewUrl) return '';
         const match = viewUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -215,7 +212,6 @@
         return viewUrl;
     }
 
-    // Загрузка общего фото
     async function uploadCommonPhoto(base64, fileName, index) {
         const url = getAppUrl();
         const response = await fetch(url, {
@@ -229,13 +225,12 @@
         return data.url;
     }
 
-    // Загрузка фото для блока
-    async function uploadBlockPhoto(base64, fileName, blockIndex, photoSlot) {
+    async function uploadBlockPhoto(base64, fileName, blockIdx, slot) {
         const url = getAppUrl();
         const response = await fetch(url, {
             method: 'POST',
             mode: 'cors',
-            body: JSON.stringify({ action: 'uploadPhoto', address: currentAddress, photoIndex: photoSlot, base64: base64, fileName: fileName, blockNumber: blockIndex })
+            body: JSON.stringify({ action: 'uploadPhoto', address: currentAddress, photoIndex: slot, base64: base64, fileName: fileName, blockNumber: blockIdx+1 })
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
@@ -243,7 +238,6 @@
         return data.url;
     }
 
-    // Отрисовка общих фото
     function renderCommonPhotos() {
         commonPhotosContainer.innerHTML = '';
         if (!currentCommonPhotos.length) {
@@ -328,39 +322,84 @@
 
     addCommonPhotoBtn.addEventListener('click', addCommonPhoto);
 
-    // Создание блока с поддержкой фото
     function createBlock(idx, data = null) {
         const div = document.createElement('div');
         div.className = 'form-card';
         div.dataset.index = idx;
-        const blockPhotos = data?.photo1 ? [data.photo1, data.photo2, data.photo3].filter(p => p) : [];
         div.innerHTML = `
             <div class="block-number">📐 Помещение #${idx+1}</div>
             <button class="remove-block" ${idx === 0 ? 'disabled style="display:none;"' : ''}>✖</button>
             <div class="full-width"><label>Название комнаты *</label><input type="text" class="room-name" placeholder="Гостиная" value="${escapeHtml(data?.roomName || '')}"></div>
             <div class="grid-3cols">
-                <div><label>Высота проёма</label><input type="number" class="height" placeholder="" value="${data?.height !== undefined ? data.height : ''}"></div>
-                <div><label>Ширина проёма</label><input type="number" class="width" placeholder="" value="${data?.width !== undefined ? data.width : ''}"></div>
-                <div><label>Толщина стены</label><input type="number" class="wall-thickness" placeholder="" value="${data?.wallThickness !== undefined ? data.wallThickness : ''}"></div>
+                <div><label>Высота проёма</label><input type="number" class="height" placeholder="" value="${data?.height !== undefined && data?.height !== '' ? data.height : ''}"></div>
+                <div><label>Ширина проёма</label><input type="number" class="width" placeholder="" value="${data?.width !== undefined && data?.width !== '' ? data.width : ''}"></div>
+                <div><label>Толщина стены</label><input type="number" class="wall-thickness" placeholder="" value="${data?.wallThickness !== undefined && data?.wallThickness !== '' ? data.wallThickness : ''}"></div>
             </div>
             <div class="correction-divider"></div>
             <div class="correction-label">✂️ Необходимая коррекция размера</div>
             <div class="grid-3cols">
-                <div><input type="number" class="corr-height" placeholder="Высота" value="${data?.corrHeight !== undefined ? data.corrHeight : ''}"></div>
-                <div><input type="number" class="corr-width" placeholder="Ширина" value="${data?.corrWidth !== undefined ? data.corrWidth : ''}"></div>
-                <div><input type="number" class="corr-wall" placeholder="Толщина" value="${data?.corrWallThickness !== undefined ? data.corrWallThickness : ''}"></div>
+                <div><input type="number" class="corr-height" placeholder="Высота" value="${data?.corrHeight !== undefined && data?.corrHeight !== '' ? data.corrHeight : ''}"></div>
+                <div><input type="number" class="corr-width" placeholder="Ширина" value="${data?.corrWidth !== undefined && data?.corrWidth !== '' ? data.corrWidth : ''}"></div>
+                <div><input type="number" class="corr-wall" placeholder="Толщина" value="${data?.corrWallThickness !== undefined && data?.corrWallThickness !== '' ? data.corrWallThickness : ''}"></div>
             </div>
             <div class="grid-2cols">
-                <div><label>Поднятие чистового пола (мм)</label><input type="number" class="floor-raise" placeholder="" value="${data?.floorRaise !== undefined ? data.floorRaise : ''}"></div>
+                <div><label>Поднятие чистового пола (мм)</label><input type="number" class="floor-raise" placeholder="" value="${data?.floorRaise !== undefined && data?.floorRaise !== '' ? data.floorRaise : ''}"></div>
                 <div><label>Тип открывания</label><select class="door-type">${makeDoorOptions(data?.doorType || '')}</select></div>
             </div>
             <div class="full-width"><label>Примечание</label><textarea class="comment" rows="1" placeholder="необязательно">${escapeHtml(data?.comment || '')}</textarea></div>
             <div class="block-photos" id="blockPhotos_${idx}">
-                ${blockPhotos.map((url, i) => `<div class="block-photo-item" data-photo-url="${url}"><img src="${getThumbnailUrl(url, 200)}" onerror="this.src='data:image/svg+xml,%3Csvg...%3E'"><div class="photo-blur" style="font-size:10px; padding:2px;">✖</div></div>`).join('')}
-                ${blockPhotos.length < 3 ? `<button class="add-block-photo-btn" data-slot="${blockPhotos.length+1}">+ Добавить фото</button>` : ''}
             </div>
         `;
-        // Обработчик удаления блока
+        const blockPhotosDiv = div.querySelector('.block-photos');
+        // Восстанавливаем фото, если они есть в data
+        if (data) {
+            const photos = [data.photo1, data.photo2, data.photo3].filter(p => p && p.trim() !== '');
+            photos.forEach((url, i) => {
+                addBlockPhotoElement(blockPhotosDiv, url, idx, i+1);
+            });
+        }
+        // Добавляем кнопку "Добавить фото", если ещё нет 3 фото
+        const addBtn = document.createElement('button');
+        addBtn.className = 'add-block-photo-btn';
+        addBtn.textContent = '+ Добавить фото';
+        addBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const currentBlockIdx = blocks.indexOf(div);
+            if (currentBlockIdx === -1) return;
+            const existingPhotos = Array.from(blockPhotosDiv.querySelectorAll('.block-photo-item')).length;
+            if (existingPhotos >= 3) {
+                showStatus(formStatus, 'Максимум 3 фото для блока', 'error');
+                return;
+            }
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async (ev) => {
+                const file = ev.target.files[0];
+                if (!file) return;
+                addBtn.textContent = '⏳...';
+                addBtn.disabled = true;
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const base64 = event.target.result;
+                    try {
+                        const viewUrl = await uploadBlockPhoto(base64, file.name, currentBlockIdx, existingPhotos+1);
+                        addBlockPhotoElement(blockPhotosDiv, viewUrl, currentBlockIdx, existingPhotos+1);
+                        if (existingPhotos+1 >= 3) addBtn.remove();
+                        showStatus(formStatus, '✅ Фото блока добавлено', 'success');
+                    } catch (err) {
+                        showStatus(formStatus, 'Ошибка: ' + err.message, 'error');
+                    } finally {
+                        addBtn.textContent = '+ Добавить фото';
+                        addBtn.disabled = false;
+                    }
+                };
+                reader.readAsDataURL(file);
+            };
+            input.click();
+        });
+        blockPhotosDiv.appendChild(addBtn);
+
         const removeBtn = div.querySelector('.remove-block');
         if (removeBtn) {
             removeBtn.addEventListener('click', (e) => {
@@ -375,83 +414,27 @@
                 }
             });
         }
-        // Обработчики добавления фото для блока
-        const addPhotoBtnBlock = div.querySelector('.add-block-photo-btn');
-        if (addPhotoBtnBlock) {
-            const slot = parseInt(addPhotoBtnBlock.dataset.slot);
-            addPhotoBtnBlock.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const currentBlockIndex = blocks.indexOf(div);
-                if (currentBlockIndex === -1) return;
-                const existingPhotos = [];
-                for (let i = 1; i <= 3; i++) {
-                    const url = blocks[currentBlockIndex].querySelector(`.block-photo-item[data-photo-url]`)?.dataset.photoUrl;
-                    if (url) existingPhotos.push(url);
-                }
-                if (existingPhotos.length >= 3) {
-                    showStatus(formStatus, 'Максимум 3 фото для блока', 'error');
-                    return;
-                }
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = async (ev) => {
-                    const file = ev.target.files[0];
-                    if (!file) return;
-                    addPhotoBtnBlock.textContent = '⏳...';
-                    addPhotoBtnBlock.disabled = true;
-                    const reader = new FileReader();
-                    reader.onload = async (event) => {
-                        const base64 = event.target.result;
-                        const nextSlot = existingPhotos.length + 1;
-                        try {
-                            const viewUrl = await uploadBlockPhoto(base64, file.name, currentBlockIndex+1, nextSlot);
-                            // Обновляем локальные данные блока
-                            if (!blocks[currentBlockIndex].blockPhotos) blocks[currentBlockIndex].blockPhotos = [];
-                            blocks[currentBlockIndex].blockPhotos.push(viewUrl);
-                            // Обновляем DOM
-                            const blockPhotosDiv = div.querySelector('.block-photos');
-                            const newPhotoDiv = document.createElement('div');
-                            newPhotoDiv.className = 'block-photo-item';
-                            newPhotoDiv.dataset.photoUrl = viewUrl;
-                            newPhotoDiv.innerHTML = `<img src="${getThumbnailUrl(viewUrl, 200)}" onerror="this.src='data:image/svg+xml,%3Csvg...%3E'"><div class="photo-blur" style="font-size:10px; padding:2px;">✖</div>`;
-                            newPhotoDiv.querySelector('.photo-blur').addEventListener('click', (e) => {
-                                e.stopPropagation();
-                                // Удаление фото (опционально)
-                            });
-                            blockPhotosDiv.insertBefore(newPhotoDiv, addPhotoBtnBlock);
-                            if (existingPhotos.length + 1 >= 3) {
-                                addPhotoBtnBlock.remove();
-                            } else {
-                                addPhotoBtnBlock.dataset.slot = existingPhotos.length + 2;
-                            }
-                            showStatus(formStatus, '✅ Фото блока добавлено', 'success');
-                        } catch (err) {
-                            showStatus(formStatus, 'Ошибка: ' + err.message, 'error');
-                        } finally {
-                            addPhotoBtnBlock.textContent = '+ Добавить фото';
-                            addPhotoBtnBlock.disabled = false;
-                        }
-                    };
-                    reader.readAsDataURL(file);
-                };
-                input.click();
-            });
-        }
-        // Обработка клика по фото блока (открыть в новой вкладке)
-        div.querySelectorAll('.block-photo-item').forEach(el => {
-            el.addEventListener('click', (e) => {
-                if (e.target.classList.contains('photo-blur')) return;
-                const url = el.dataset.photoUrl;
-                if (url) window.open(url, '_blank');
-            });
-        });
         const inputs = div.querySelectorAll('input, select, textarea');
         inputs.forEach(input => {
             input.addEventListener('input', () => onBlockInput(div));
             input.addEventListener('change', () => onBlockInput(div));
         });
         return div;
+    }
+
+    function addBlockPhotoElement(container, viewUrl, blockIdx, slot) {
+        const thumbUrl = getThumbnailUrl(viewUrl, 200);
+        const photoDiv = document.createElement('div');
+        photoDiv.className = 'block-photo-item';
+        photoDiv.dataset.photoUrl = viewUrl;
+        photoDiv.innerHTML = `<img src="${thumbUrl}" onerror="this.src='data:image/svg+xml,%3Csvg...%3E'">`;
+        photoDiv.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (viewUrl) window.open(viewUrl, '_blank');
+        });
+        // Вставляем перед кнопкой (которая последняя)
+        const addBtn = container.querySelector('.add-block-photo-btn');
+        container.insertBefore(photoDiv, addBtn);
     }
 
     function hasAnyValue(block) {
@@ -510,7 +493,7 @@
         block.querySelector('.corr-width').value = (data.corrWidth !== undefined && data.corrWidth !== '') ? data.corrWidth : '';
         block.querySelector('.corr-wall').value = (data.corrWallThickness !== undefined && data.corrWallThickness !== '') ? data.corrWallThickness : '';
         block.querySelector('.comment').value = data.comment || '';
-        // Фото блока восстанавливаются при создании блока, поэтому здесь не трогаем
+        // Фото уже восстанавливаются в createBlock через data.photo1..3, здесь не нужно повторять
     }
 
     function collectAllBlocks() {
@@ -519,7 +502,6 @@
             const b = blocks[i];
             const roomName = b.querySelector('.room-name').value.trim();
             if (!roomName) continue;
-            // Собираем фото блока
             const photoItems = b.querySelectorAll('.block-photo-item');
             const photos = [];
             photoItems.forEach(el => {
@@ -673,16 +655,15 @@
                 currentCommonPhotos = commonPhotos;
                 resetForm();
                 if (savedBlocks && savedBlocks.length) {
+                    // Первый блок уже создан в resetForm, заполняем его
                     fillBlockWithData(blocks[0], savedBlocks[0]);
-                    // Восстанавливаем фото блока (создаём заново элементы)
-                    // Этот момент требует доработки, но для простоты оставим так
+                    // Для остальных блоков создаём новые
                     for (let i = 1; i < savedBlocks.length; i++) {
                         const newBlock = createBlock(blocks.length, savedBlocks[i]);
                         blocks.push(newBlock);
                         blocksContainer.appendChild(newBlock);
                     }
                     renumberBlocks();
-                    // Добавляем новый пустой блок, если последний заполнен
                     if (blocks.length < MAX_BLOCKS && hasAnyValue(blocks[blocks.length-1])) addNewBlock();
                 }
                 renderMiniClientCard(client);
