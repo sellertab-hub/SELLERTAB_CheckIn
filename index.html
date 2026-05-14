@@ -619,10 +619,11 @@
                 infoDiv.appendChild(nameSpan);
             }
             if (client.phone) {
+                const phoneStr = client.phone.toString();
                 const phoneLink = document.createElement('a');
                 phoneLink.className = 'client-phone';
-                phoneLink.href = `tel:${client.phone.replace(/[^0-9+]/g, '')}`;
-                phoneLink.textContent = client.phone;
+                phoneLink.href = `tel:${phoneStr.replace(/[^0-9+]/g, '')}`;
+                phoneLink.textContent = phoneStr;
                 phoneLink.onclick = (e) => e.stopPropagation();
                 infoDiv.appendChild(phoneLink);
             }
@@ -680,6 +681,7 @@
     }
 
     function renderMiniClientCard(client) {
+        const phoneStr = (client.phone || '').toString();
         miniClientCard.style.display = 'block';
         miniClientCard.innerHTML = `
             <div class="client-address-row">
@@ -688,7 +690,7 @@
             </div>
             <div class="client-info">
                 <span>${escapeHtml(client.name || '')}</span>
-                <a class="client-phone" href="tel:${(client.phone || '').replace(/[^0-9+]/g, '')}" onclick="event.stopPropagation()">${escapeHtml(client.phone || '')}</a>
+                <a class="client-phone" href="tel:${phoneStr.replace(/[^0-9+]/g, '')}" onclick="event.stopPropagation()">${escapeHtml(phoneStr)}</a>
             </div>
             ${client.dateTimeString ? `<div class="client-datetime">📅 Замер: ${formatDateTime(client.dateTimeString)}</div>` : ''}
             ${client.comment ? `<div class="client-comment">💬 ${escapeHtml(client.comment)}</div>` : ''}
