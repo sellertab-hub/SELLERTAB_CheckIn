@@ -681,8 +681,8 @@
     }
 
     function renderMiniClientCard(client) {
-        const phoneStr = (client.phone || '').toString();
         miniClientCard.style.display = 'block';
+        const phoneStr = (client.phone || '').toString();
         miniClientCard.innerHTML = `
             <div class="client-address-row">
                 <div class="client-address">${escapeHtml(client.address)}</div>
